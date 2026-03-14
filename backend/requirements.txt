@@ -1,6 +1,10 @@
 django
 djangorestframework
+djangorestframework-simplejwt
 django-cors-headers
+django-ratelimit
 psycopg2-binary
 python-dotenv
 pillow
+cryptography
+drf-spectacular

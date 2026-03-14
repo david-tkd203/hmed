@@ -1,5 +1,12 @@
 from django.contrib import admin
-from .models import RegistroClinico, Medicamento
+from .models import RegistroClinico, Medicamento, Paciente
+
+@admin.register(Paciente)
+class PacienteAdmin(admin.ModelAdmin):
+    list_display = ('numero_cedula', 'usuario', 'genero', 'ciudad', 'creado_en')
+    search_fields = ('usuario__first_name', 'usuario__last_name', 'numero_cedula', 'email')
+    list_filter = ('genero', 'ciudad', 'creado_en')
+    readonly_fields = ('creado_en', 'actualizado_en')
 
 @admin.register(RegistroClinico)
 class RegistroClinicoAdmin(admin.ModelAdmin):
