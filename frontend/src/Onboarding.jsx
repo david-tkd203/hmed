@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { CheckCircle, XCircle, Phone, MapPin, AlertTriangle, Heart } from 'react-bootstrap-icons';
+import { CheckCircle, XCircle, Phone, GeoAlt, ExclamationCircle, Heart } from 'react-bootstrap-icons';
 import './Onboarding.css';
 
 export default function Onboarding({ user, paciente, onComplete }) {
@@ -99,7 +99,7 @@ export default function Onboarding({ user, paciente, onComplete }) {
 
             <div className="form-group">
               <label htmlFor="direccion">
-                <MapPin size={18} /> Dirección (Opcional)
+                <GeoAlt size={18} /> Dirección (Opcional)
               </label>
               <input
                 type="text"
@@ -153,7 +153,7 @@ export default function Onboarding({ user, paciente, onComplete }) {
 
             <div className="form-group">
               <label htmlFor="alergias">
-                <AlertTriangle size={18} /> Alergias (Opcional)
+                <ExclamationCircle size={18} /> Alergias (Opcional)
               </label>
               <textarea
                 id="alergias"

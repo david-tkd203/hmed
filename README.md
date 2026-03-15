@@ -10,13 +10,16 @@
 - [Stack Tecnológico](#stack-tecnológico)
 - [Estructura del Proyecto](#estructura-del-proyecto)
 - [Requisitos Previos](#requisitos-previos)
+- [Puertos y Servicios](#puertos-y-servicios)
 - [Configuración Inicial](#configuración-inicial)
 - [Desarrollo Local](#desarrollo-local)
+- [Autenticación JWT](#autenticación-jwt)
+- [Rate Limiting](#rate-limiting)
+- [Auditoría de Código con SonarQB](#auditoría-de-código-con-sonarqb)
 - [Comandos de Base de Datos](#comandos-de-base-de-datos)
 - [API REST](#api-rest)
 - [Desarrollo Frontend](#desarrollo-frontend)
 - [Solución de Problemas](#solución-de-problemas)
-- [Contribución](#contribución)
 
 ---
 
@@ -46,7 +49,11 @@
 | **Python** | 3.11 | Runtime principal |
 | **Django** | 5.2 | Framework web |
 | **Django REST Framework** | Latest | API REST |
-| **PostgreSQL** | 15 | Base de datos (producción) |
+| **djangorestframework-simplejwt** | Latest | Autenticación JWT (Access + Refresh tokens) |
+| **django-ratelimit** | Latest | Rate limiting por endpoint |
+| **drf-spectacular** | Latest | OpenAPI 3.0 / Swagger / ReDoc |
+| **django-cors-headers** | Latest | CORS configuration |
+| **PostgreSQL** | 15 | Base de datos relacional |
 | **psycopg2** | Latest | Driver PostgreSQL |
 | **python-dotenv** | Latest | Gestión de variables de entorno |
 | **Pillow** | Latest | Procesamiento de imágenes |
@@ -57,14 +64,20 @@
 | **React** | 19.2.4 | Biblioteca UI |
 | **Vite** | 8.0.0 | Build tool |
 | **Axios** | 1.13.6 | Cliente HTTP |
-| **Lucide React** | 0.577.0 | Iconografía |
+| **react-bootstrap-icons** | 1.11.6 | Iconografía SVG |
 | **ESLint** | 9.39.4 | Linting |
+
+### Auditoría de Código
+| Componente | Versión | Uso |
+|-----------|---------|-----|
+| **SonarQB Community** | Latest | Análisis estático, detección vulnerabilidades |
+| **drf-spectacular** | Latest | Documentación automática (Swagger/ReDoc) |
 
 ### Infraestructura
 | Componente | Versión | Uso |
 |-----------|---------|-----|
 | **Docker** | Latest | Containerización |
-| **Docker Compose** | 3.8 | Orquestación local |
+| **Docker Compose** | 3.8+ | Orquestación local (4 servicios) |
 
 ---
 
@@ -73,50 +86,61 @@
 ```
 historico-clinico/
 │
-├── docker-compose.yml              # Orquestación de servicios (DB + Web)
-├── README.md                        # Este archivo
-├── DEPLOYMENT_GUIDE.md              # Guía de despliegue a producción
-├── package.json                     # Root package (para scripts globales)
+├── docker-compose.yml              # Orquestación de 4 servicios (DB + Web + Frontend + SonarQB)
+├── sonar-project.properties        # Configuración análisis SonarQB
+├── run-sonar-analysis.sh           # Script automatizado para auditoría código
+├── SONARQB_SETUP.md                # Guía de uso SonarQB
+├── API_DOCUMENTATION.md            # Documentación de endpoints + rate limiting
+├── README.md                       # Este archivo
+├── DEPLOYMENT_GUIDE.md             # Guía de despliegue a producción
+├── package.json                    # Root package (para scripts globales)
 │
-├── backend/                         # Proyecto Django
-│   ├── Dockerfile                   # Imagen Docker para Django
-│   ├── requirements.txt             # Dependencias Python
-│   ├── manage.py                    # CLI de Django
-│   ├── db.sqlite3                   # Base de datos SQLite (desarrollo)
+├── backend/                        # Proyecto Django
+│   ├── Dockerfile                  # Imagen Docker para Django (python:3.11-slim)
+│   ├── requirements.txt            # Dependencias Python
+│   ├── manage.py                   # CLI de Django
 │   │
-│   ├── Hmed/                        # Configuración principal del proyecto
+│   ├── Hmed/                       # Configuración principal del proyecto
 │   │   ├── __init__.py
-│   │   ├── settings.py              # Configuración de Django
-│   │   ├── urls.py                  # Rutas principales
-│   │   ├── asgi.py                  # Configuración ASGI
-│   │   └── wsgi.py                  # Configuración WSGI
+│   │   ├── settings.py             # Django settings + JWT + CORS + DRF
+│   │   ├── urls.py                 # Rutas (API + Swagger/ReDoc/Schema)
+│   │   ├── asgi.py                 # Configuración ASGI
+│   │   └── wsgi.py                 # Configuración WSGI
 │   │
-│   └── registros/                   # Aplicación de registros clínicos
-│       ├── models.py                # Modelos (RegistroClinico, Medicamento)
-│       ├── views.py                 # Vistas/ViewSets
-│       ├── admin.py                 # Configuración de admin
+│   └── registros/                  # Aplicación de registros clínicos
+│       ├── models.py               # Modelos de datos
+│       ├── views.py                # ViewSets + rate limiting + JWT
+│       ├── rate_limiters.py        # Decorador custom_ratelimit (NEW)
+│       ├── rate_limit_config.py    # Configuración de límites (NEW)
+│       ├── admin.py                # Panel administrador
 │       ├── apps.py
 │       ├── tests.py
-│       │
-│       └── migrations/              # Migraciones de BD
+│       └── migrations/             # Migraciones de BD
 │           └── 0001_initial.py
 │
-└── frontend/                        # Proyecto React + Vite
-    ├── vite.config.js               # Configuración de Vite
-    ├── eslint.config.js             # Configuración de ESLint
-    ├── package.json                 # Dependencias (React, Axios, etc)
-    ├── index.html                   # HTML de entrada
-    │
-    ├── public/                      # Assets estáticos
-    │   └── ...
-    │
-    └── src/                         # Código fuente
-        ├── main.jsx                 # Punto de entrada React
-        ├── App.jsx                  # Componente raíz
-        ├── App.css
-        ├── index.css
-        └── assets/
-            └── ...
+├── frontend/                       # Proyecto React + Vite
+│   ├── Dockerfile                  # Imagen Docker (node:22-alpine)
+│   ├── .env.local                  # Variables de entorno (NEW)
+│   ├── vite.config.js              # Configuración de Vite
+│   ├── eslint.config.js            # Configuración de ESLint
+│   ├── package.json                # Dependencias (React, Axios, Bootstrap Icons)
+│   ├── index.html                  # HTML de entrada
+│   │
+│   ├── public/                     # Assets estáticos
+│   │   └── ...
+│   │
+│   └── src/                        # Código fuente
+│       ├── main.jsx                # Punto de entrada React
+│       ├── App.jsx                 # Componente raíz con autenticación
+│       ├── Login.jsx               # Login con JWT + rate limit (NEW)
+│       ├── Onboarding.jsx          # Perfil inicial del usuario (NEW)
+│       ├── RateLimitError.jsx      # Componente error 429 con countdown (NEW)
+│       ├── Dashboard.jsx           # Panel principal (NEW)
+│       ├── App.css
+│       ├── index.css
+│       ├── RateLimitError.css      # Estilos error rate limit (NEW)
+│       └── assets/
+│           └── ...
 ```
 
 ---
@@ -147,6 +171,34 @@ git --version
 # Verificar Node.js (opcional)
 node --version
 npm --version
+```
+
+---
+
+## 🌐 Puertos y Servicios
+
+La aplicación levanta **4 servicios** en Docker. Estos son los puertos utilizados:
+
+| Servicio | Puerto | URL | Usuario | Contraseña | Descripción |
+|----------|--------|-----|---------|------------|-------------|
+| **PostgreSQL** | 5432 | localhost:5432 | admin | secret_pass | Base de datos relacional |
+| **Django API** | 8000 | http://localhost:8000 | N/A | N/A | API REST + Admin panel |
+| **Swagger/ReDoc** | 8000 | http://localhost:8000/api/docs/swagger/ | N/A | N/A | Documentación interactiva |
+| **React Frontend** | 5173 | http://localhost:5173 | N/A | N/A | Interfaz de usuario |
+| **SonarQB** | 9000 | http://localhost:9000 | admin | admin | Auditoría código & vulnerabilidades |
+
+### Verificar que todos los servicios están corriendo
+
+```bash
+# Ver estado de todos los contenedores
+docker-compose ps
+
+# Salida esperada:
+# NAME                   SERVICE      STATUS      PORTS
+# historicoclinico-db-1       db           Up 2m       0.0.0.0:5432->5432/tcp
+# historicoclinico-web-1      web          Up 2m       0.0.0.0:8000->8000/tcp
+# historicoclinico-frontend-1 frontend     Up 2m       0.0.0.0:5173->5173/tcp
+# sonarqube                    sonarqube    Up 2m       0.0.0.0:9000->9000/tcp
 ```
 
 ---
@@ -186,24 +238,29 @@ EOF
 
 ⚠️ **IMPORTANTE**: En producción, cambiar `DEBUG=False` y usar claves seguras.
 
-### 3️⃣ Levantar la aplicación con Docker Compose
+### 3️⃣ Levantar la aplicación con Docker Compose (4 servicios)
 
 ```bash
-# Descargar imágenes y crear contenedores
-docker-compose up -d
+# Construir imágenes y crear contenedores (primera vez)
+docker-compose up -d --build
 
 # Ver logs en tiempo real
 docker-compose logs -f
 
-# Verificar que los servicios están corriendo
+# Si ya existen los contenedores, simplemente levantarlos
+docker-compose up -d
+
+# Verificar que los 4 servicios están corriendo
 docker-compose ps
 ```
 
 **Salida esperada:**
 ```
-NAME              COMMAND                  SERVICE   STATUS      PORTS
-historico-clinico-db-1    "docker-entrypoint.s…"   db        Up 2 minutes   5432/tcp
-historico-clinico-web-1   "python manage.py ru…"   web       Up 2 minutes   0.0.0.0:8000->8000/tcp
+NAME                    COMMAND             SERVICE      STATUS      PORTS
+historicoclinico-db-1       "docker-entrypoint.s…"   db           Up 2m       0.0.0.0:5432->5432/tcp
+historicoclinico-web-1      "python manage.py ru…"   web          Up 2m       0.0.0.0:8000->8000/tcp
+historicoclinico-frontend-1 "docker-entrypoint.s…"   frontend     Up 2m       0.0.0.0:5173->5173/tcp
+sonarqube                    "/opt/sonarqube/dock…"   sonarqube    Up 2m       0.0.0.0:9000->9000/tcp
 ```
 
 ### 4️⃣ Aplicar migraciones de base de datos
@@ -217,11 +274,32 @@ docker-compose exec web python manage.py createsuperuser
 # Sigue las instrucciones interactivas
 ```
 
-### 5️⃣ Verificar que todo funciona
+### 5️⃣ Crear usuario de prueba
 
-- **API Backend**: Abre [http://localhost:8000](http://localhost:8000)
-- **Admin Panel**: Abre [http://localhost:8000/admin](http://localhost:8000/admin)
-- **Base de datos**: El contenedor PostgreSQL está disponible en `localhost:5432`
+```bash
+# Crear usuario de prueba (demo/123456)
+docker-compose exec web python manage.py create_test_user
+```
+
+### 6️⃣ Acceder a los servicios
+
+✅ **Frontend**: [http://localhost:5173](http://localhost:5173)  
+   - Usuario: `demo` | Contraseña: `123456`
+
+✅ **API Documentation**: [http://localhost:8000/api/docs/swagger/](http://localhost:8000/api/docs/swagger/)  
+   - Interfaz interactiva para probar endpoints
+
+✅ **ReDoc Documentation**: [http://localhost:8000/api/docs/redoc/](http://localhost:8000/api/docs/redoc/)  
+   - Documentación legible en ReDoc
+
+✅ **Django Admin**: [http://localhost:8000/admin](http://localhost:8000/admin)  
+   - Usuario: `admin` | (Crear con `createsuperuser`)
+
+✅ **SonarQB Code Analysis**: [http://localhost:9000](http://localhost:9000)  
+   - Usuario: `admin` | Contraseña: `admin`
+
+✅ **Base de datos**: `localhost:5432`  
+   - Usuario: `admin` | Contraseña: `secret_pass`
 
 ---
 
@@ -294,7 +372,126 @@ npm run dev
 
 ---
 
-## 🗄️ Comandos de Base de Datos
+## � Autenticación JWT
+
+La API usa **SimplJWT** con tokens de acceso (1 hora) y refresh (7 días).
+
+### Obtener tokens
+```bash
+# Login (devuelve access_token + refresh_token)
+curl -X POST http://localhost:8000/api/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"username": "demo", "password": "123456"}'
+
+# Respuesta:
+# {
+#   "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+#   "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+#   "user": {"id": 1, "username": "demo", ...}
+# }
+```
+
+### Usar token en requests
+```bash
+# Incluir en header Authorization
+curl -H "Authorization: Bearer <access_token>" \
+  http://localhost:8000/api/paciente/profile/
+```
+
+### Refrescar token expirado
+```bash
+# Cuando el access_token expire (1 hora), usar refresh_token
+curl -X POST http://localhost:8000/api/token/refresh/ \
+  -H "Content-Type: application/json" \
+  -d '{"refresh": "<refresh_token>"}'
+
+# Devuelve nuevo access_token
+```
+
+---
+
+## ⏱️ Rate Limiting
+
+La API implementa rate limiting automático por endpoint para prevenir abuso:
+
+| Endpoint | Límite | Ventana | Identificador | Respuesta |
+|----------|--------|---------|---------------|----------|
+| `/api/login/` | 5 | 1 hora | IP | 429 + Retry-After |
+| `/api/register/` | 3 | 1 hora | IP | 429 + Retry-After |
+| `/api/token/refresh/` | 10 | 1 hora | IP | 429 + Retry-After |
+| `/api/file/validate/` | 20 | 1 hora | Usuario | 429 + Retry-After |
+| `/api/registro/upload/` | 20 | 1 hora | Usuario | 429 + Retry-After |
+| `/api/paciente/profile/` | 30 | 1 hora | Usuario | 429 + Retry-After |
+
+### Manejar error 429 (Too Many Requests)
+
+```javascript
+// Frontend - Axios interceptor
+axios.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.headers['retry-after'];
+      console.log(`Rate limitado. Reintentar en ${retryAfter} segundos`);
+      // Mostrar componente RateLimitError con countdown
+    }
+    return Promise.reject(error);
+  }
+);
+```
+
+### Ejemplo respuesta 429
+```json
+{
+  "detail": "Demasiados intentos de inicio de sesión. Límite: 5 intentos/hora por IP.",
+  "retry_after": 3600
+}
+
+Headers:
+Retry-After: 3600
+```
+
+---
+
+## 🔍 Auditoría de Código con SonarQB
+
+### Ejecutar análisis automático
+
+```bash
+# Opción 1: Script automatizado (RECOMENDADO)
+bash run-sonar-analysis.sh
+
+# Opción 2: Comando directo en PowerShell
+docker run --rm `
+  --network="historicoclinico_hmed_network" `
+  -v "$(pwd):/usr/src" `
+  sonarsource/sonar-scanner-cli:latest `
+  -Dsonar.projectKey=historico-clinico `
+  -Dsonar.sources=/usr/src/backend/registros,/usr/src/frontend/src `
+  -Dsonar.host.url=http://sonarqube:9000 `
+  -Dsonar.login=admin `
+  -Dsonar.password=admin
+```
+
+### Ver resultados
+
+1. Accede a [http://localhost:9000](http://localhost:9000)
+2. Inicia sesión con `admin`/`admin`
+3. Haz clic en proyecto "Histórico Clínico"
+
+### Métricas analizadas
+
+✅ **Issues**: Bugs clasificados por severidad  
+✅ **Security**: Vulnerabilidades (SQL injection, XSS, etc.)  
+✅ **Code Smells**: Malas prácticas y complejidad  
+✅ **Duplications**: Porcentaje de código duplicado  
+✅ **Deuda Técnica**: Horas estimadas para arreglarlo  
+
+Ver [SONARQB_SETUP.md](SONARQB_SETUP.md) para más detalles.
+
+---
+
+## �🗄️ Comandos de Base de Datos
 
 ### Migraciones
 
@@ -328,8 +525,15 @@ docker-compose exec web python manage.py dumpdata registros > backup.json
 # Limpiar la base de datos (CUIDADO: elimina datos)
 docker-compose exec web python manage.py flush
 
-# Eliminar todos los contenedores y volúmenes (CUIDADO: pérdida total de datos)
+# Crear usuario de prueba
+docker-compose exec web python manage.py create_test_user
+
+# Eliminar todos los contenedores y volúmenes (CUIDADO: pérdida TOTAL de datos)
 docker-compose down -v
+
+# Limpiar solo datos de SonarQB
+docker volume rm historicoclinico_sonarqube_data
+docker-compose up -d sonarqube
 ```
 
 ### Base de Datos PostgreSQL
@@ -350,52 +554,75 @@ SELECT * FROM tabla_nombre;  # Ver datos
 
 ## 🔌 API REST
 
+### Documentación interactiva
+
+- **Swagger UI**: [http://localhost:8000/api/docs/swagger/](http://localhost:8000/api/docs/swagger/)
+- **ReDoc**: [http://localhost:8000/api/docs/redoc/](http://localhost:8000/api/docs/redoc/)
+- **OpenAPI Schema**: [http://localhost:8000/api/schema/](http://localhost:8000/api/schema/)
+
 ### Autenticación
-La API requiere token JWT para la mayoría de endpoints.
 
-```bash
-# Obtener token
-curl -X POST http://localhost:8000/api/token/ \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user", "password": "pass"}'
-
-# Usar token en requests
-curl -H "Authorization: Bearer tu-token" http://localhost:8000/api/registros/
-```
+La API requiere token JWT. Ver sección [Autenticación JWT](#autenticación-jwt).
 
 ### Endpoints Principales
 
-#### Registros Clínicos
+#### Autenticación
 ```
-GET    /api/registros/              # Listar todos los registros
-POST   /api/registros/              # Crear nuevo registro
-GET    /api/registros/{id}/         # Obtener un registro
-PUT    /api/registros/{id}/         # Actualizar registro
-DELETE /api/registros/{id}/         # Eliminar registro
+POST   /api/login/                  # Obtener access/refresh tokens
+POST   /api/register/               # Registrar nuevo usuario
+POST   /api/token/refresh/          # Refrescar access token expirado
 ```
 
-#### Medicamentos
+#### Perfil de Paciente
 ```
-GET    /api/medicamentos/           # Listar medicamentos
-POST   /api/medicamentos/           # Crear medicamento
-GET    /api/medicamentos/{id}/      # Obtener medicamento
-PUT    /api/medicamentos/{id}/      # Actualizar medicamento
-DELETE /api/medicamentos/{id}/      # Eliminar medicamento
+GET    /api/paciente/profile/       # Obtener perfil del usuario
+PATCH  /api/paciente/profile/       # Actualizar datos opcionales (teléfono, dirección, etc)
 ```
 
-### Ejemplo de Request
+#### Validación de Archivos
+```
+POST   /api/file/validate/          # Validar archivo antes de subir
+POST   /api/registro/upload/        # Subir registro clínico con archivo
+```
+
+### Ejemplo: Login y obtener token
+
 ```bash
-# Crear un nuevo registro clínico
-curl -X POST http://localhost:8000/api/registros/ \
-  -H "Authorization: Bearer tu-token" \
+# Login
+curl -X POST http://localhost:8000/api/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"username": "demo", "password": "123456"}'
+
+# Respuesta:
+# {
+#   "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+#   "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+#   "user": {"id": 1, "username": "demo"}
+# }
+
+# Usar el token
+TOKEN="<access_token_aqui>"
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/paciente/profile/
+```
+
+### Ejemplo: Actualizar perfil
+
+```bash
+curl -X PATCH http://localhost:8000/api/paciente/profile/ \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "especialidad": "Cardiología",
-    "clinica": "Clínica Central",
-    "fecha_consulta": "2024-03-14",
-    "diagnostico": "Hipertensión controlada"
+    "telefono": "+1-555-0123",
+    "direccion": "Calle Principal 123",
+    "ciudad": "New York",
+    "pais": "USA",
+    "alergias": "Penicilina",
+    "enfermedades_cronicas": "Diabetes tipo 2"
   }'
 ```
+
+Ver [API_DOCUMENTATION.md](API_DOCUMENTATION.md) para documentación completa con ejemplos CURL.
 
 ---
 

@@ -44,9 +44,29 @@ services:
     networks:
       - hmed_network
 
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    environment:
+      - SONAR_JDBC_URL=jdbc:postgresql://db:5432/sonarqube
+      - SONAR_JDBC_USERNAME=admin
+      - SONAR_JDBC_PASSWORD=secret_pass
+      - SONAR_JDBC_DRIVER=org.postgresql.Driver
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+    depends_on:
+      - db
+    networks:
+      - hmed_network
+
 networks:
   hmed_network:
     driver: bridge
 
 volumes:
   postgres_data:
+  sonarqube_data:
+  sonarqube_logs:

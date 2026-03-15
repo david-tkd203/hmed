@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, AlertTriangle, ArrowRepeat } from 'react-bootstrap-icons';
+import { Clock, ExclamationCircle, ArrowRepeat } from 'react-bootstrap-icons';
 import './RateLimitError.css';
 
 export default function RateLimitError({ retryAfter, onRetry, endpoint }) {
@@ -32,7 +32,7 @@ export default function RateLimitError({ retryAfter, onRetry, endpoint }) {
     <div className="rate-limit-error-overlay">
       <div className="rate-limit-error-card">
         <div className="error-icon-container">
-          <AlertTriangle size={64} className="error-icon" />
+          <ExclamationCircle size={64} className="error-icon" />
         </div>
 
         <h2>Demasiados Intentos</h2>
