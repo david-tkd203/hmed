@@ -1,0 +1,231 @@
+# ============================================
+# 🔐 GITIGNORE - Histórico Clínico
+# ============================================
+# Archivos y carpetas que NO deben commitarse
+
+# ============================================
+# 🔒 CREDENCIALES Y VARIABLES DE ENTORNO
+# ============================================
+.env
+.env.local
+.env.*.local
+.env.production.local
+*.key
+*.pem
+*.p8
+secrets/
+secret/
+
+# ============================================
+# 🐍 PYTHON / DJANGO
+# ============================================
+# Enviroment virtual
+venv/
+ENV/
+env/
+.venv
+env.bak/
+venv.bak/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/media
+/staticfiles
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# ============================================
+# 📦 NODE.JS / FRONTEND
+# ============================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+dist/
+dist-ssr/
+*.local
+.env.*.local
+
+# ============================================
+# 💾 IDE SETTINGS
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+.pylintrc
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ============================================
+# 🗂️ SISTEMA OPERATIVO
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ============================================
+# 🐳 DOCKER
+# ============================================
+.docker/
+docker-compose.override.yml
+
+# ============================================
+# 🔧 COMPILATION & BUILD
+# ============================================
+*.o
+*.a
+*.lib
+*.out
+*.exe
+*.bin
+*.dll
+*.so
+*.dylib
+
+# ============================================
+# 📊 SonarQB / ANÁLISIS
+# ============================================
+.sonarqube/
+.sonar/
+*.sonar
+
+# ============================================
+# 📝 LOGS & TEMPORALES
+# ============================================
+*.log
+
+# ============================================
+# 🏥 DOCUMENTOS MÉDICOS - PRIVACIDAD
+# ============================================
+# NUNCA commitear documentos médicos, recetas o datos sensibles
+backend/documentos_medicos/
+documentos_medicos/
+recetas/
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.doc
+*.docx
+*.logs
+tmp/
+temp/
+*.tmp
+
+# ============================================
+# 💻 OS SPECIFIC
+# ============================================
+# Mac
+.AppleDouble
+.LSOverride
+.TemporaryItems
+
+# Windows
+$RECYCLE.BIN/
+ehthumbs.db
+
+# Linux
+.directory
+
+# ============================================
+# 🚫 ARCHIVOS ESPECÍFICOS DEL PROYECTO
+# ============================================
+# Backups
+*.bak
+*.backup
+*~
+
+# Archivos de base de datos locales
+*.sqlite
+*.sqlite3
+*.db
+
+# Archivos de prueba local
+test_*.py
+*_test.py
+test.json
+
+# Configuración local de desarrollo
+local_config.py
+settings_local.py
+
+# ============================================
+# 🔐 CREDENCIALES ESPECÍFICAS
+# ============================================
+# Nunca commitear:
+# - Contraseñas
+# - API Keys
+# - Tokens
+# - Certificados
+# - Claves privadas
+*_credentials.py
+*_secrets.py
+credentials.json
+secrets.json
+.aws/
+.ssh/
+
+# ============================================
+# 💾 ARCHIVOS DE DATOS SENSIBLES
+# ============================================
+uploads/
+downloads/
+*.csv
+*.xlsx
+*.xls
+data/

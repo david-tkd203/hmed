@@ -5,11 +5,17 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-from .models import Medicamento, Paciente, RegistroClinico
+from .models import Medicamento, Paciente, RegistroClinico, MedicalDocument
 from .serializers import LoginSerializer, RegisterSerializer, UserSerializer, PacienteDetailSerializer
 from django_ratelimit.decorators import ratelimit
+from .analysis_service import get_analyzer, MedicalImageProcessor
 from django.core.files.uploadedfile import UploadedFile
 import mimetypes
+from datetime import datetime
+import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 # ==================== RATE LIMITING CONFIGURACIÓN ====================
 # Login: 5 intentos por hora
@@ -593,6 +599,296 @@ def refresh_token_view(request):
         )
 
 
+# ==================== MEDICAL IMAGE ANALYSIS ENDPOINTS ====================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def analyze_document(request, doc_id):
+    """
+    Analizar documento médico con MedSigLIP
+    
+    Endpoint: POST /api/documents/{doc_id}/analyze/
+    
+    Realiza:
+    - Extracción de embeddings de imagen médica (448-dim)
+    - Validación de formato y calidad de imagen
+    - Almacenamiento de resultados en ia_analisis
+    
+    Retorna: analysis results, embeddings metadata, confidence scores
+    """
+    try:
+        # Verificar que el documento pertenece al usuario autenticado
+        document = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
+    except MedicalDocument.DoesNotExist:
+        return Response(
+            {'error': 'Documento no encontrado o no tienes permiso'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    try:
+        # Obtener el analizador de MedSigLIP
+        analyzer = get_analyzer()
+        
+        # Obtener ruta del archivo
+        image_path = document.archivo.path if document.archivo else None
+        if not image_path:
+            return Response(
+                {'error': 'Archivo de documento no encontrado'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        logger.info(f"Iniciando análisis de documento {doc_id}")
+        
+        # Realizar análisis con MedSigLIP
+        analysis_result = analyzer.analyze_image(image_path)
+        
+        # Crear metadata de análisis
+        analysis_data = {
+            'timestamp': datetime.now().isoformat(),
+            'modelo': 'MedSigLIP-448px',
+            'embeddings': analysis_result.get('embeddings', []),
+            'embedding_dim': 448,
+            'confidence': analysis_result.get('confidence', 0.0),
+            'processing_time': analysis_result.get('processing_time', 0.0),
+            'image_metadata': {
+                'width': analysis_result.get('image_shape', [0, 0])[1],
+                'height': analysis_result.get('image_shape', [0, 0])[0],
+                'format': 'RGB'
+            },
+            'status': 'completed'
+        }
+        
+        # Guardar resultados en el modelo
+        document.ia_analisis = json.dumps(analysis_data, default=str)
+        document.save()
+        
+        logger.info(f"Análisis completado para documento {doc_id}")
+        
+        return Response({
+            'id': document.id,
+            'message': 'Análisis completado exitosamente',
+            'analysis': {
+                'timestamp': analysis_data['timestamp'],
+                'modelo': analysis_data['modelo'],
+                'confidence': analysis_data['confidence'],
+                'embedding_dimension': analysis_data['embedding_dim'],
+                'processing_time': analysis_data['processing_time'],
+                'status': 'completed'
+            }
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.error(f"Error en análisis de documento {doc_id}: {str(e)}")
+        return Response(
+            {'error': f'Error en análisis: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def classify_document_findings(request, doc_id):
+    """
+    Clasificar hallazgos médicos en documento
+    
+    Endpoint: POST /api/documents/{doc_id}/classify/
+    
+    Parámetros (JSON):
+    {
+        "findings": ["radiografia", "pneumonia", "edema"]
+    }
+    
+    Retorna: Classification results with confidence scores
+    """
+    try:
+        document = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
+    except MedicalDocument.DoesNotExist:
+        return Response(
+            {'error': 'Documento no encontrado'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    try:
+        findings = request.data.get('findings', [])
+        if not findings:
+            return Response(
+                {'error': 'Lista de hallazgos requerida'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        analyzer = get_analyzer()
+        
+        image_path = document.archivo.path if document.archivo else None
+        if not image_path:
+            return Response(
+                {'error': 'Archivo de documento no encontrado'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        logger.info(f"Iniciando clasificación de hallazgos para documento {doc_id}")
+        
+        # Realizar clasificación
+        classification_result = analyzer.classify_finding(image_path, findings)
+        
+        # Actualizar análisis con resultados de clasificación
+        ia_analisis = {}
+        if document.ia_analisis:
+            try:
+                ia_analisis = json.loads(document.ia_analisis)
+            except json.JSONDecodeError:
+                ia_analisis = {}
+        
+        ia_analisis['classification'] = {
+            'findings': classification_result.get('predictions', {}),
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        document.ia_analisis = json.dumps(ia_analisis, default=str)
+        document.save()
+        
+        logger.info(f"Clasificación completada para documento {doc_id}")
+        
+        return Response({
+            'id': document.id,
+            'message': 'Clasificación completada',
+            'classification': classification_result.get('predictions', {})
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.error(f"Error en clasificación de documento {doc_id}: {str(e)}")
+        return Response(
+            {'error': f'Error en clasificación: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def search_similar_documents(request):
+    """
+    Buscar documentos similares usando búsqueda semántica
+    
+    Endpoint: GET /api/documents/search-similar/?ref_doc_id=<id>&top_k=5
+    
+    Parámetros:
+    - ref_doc_id: ID del documento de referencia
+    - top_k: Cantidad de resultados (default: 5)
+    
+    Retorna: Lista de documentos similares con scores de similitud
+    """
+    try:
+        ref_doc_id = request.query_params.get('ref_doc_id')
+        top_k = int(request.query_params.get('top_k', 5))
+        
+        if not ref_doc_id:
+            return Response(
+                {'error': 'ref_doc_id requerido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Obtener documento de referencia
+        try:
+            ref_document = MedicalDocument.objects.get(
+                id=ref_doc_id, 
+                usuario=request.user
+            )
+        except MedicalDocument.DoesNotExist:
+            return Response(
+                {'error': 'Documento de referencia no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Obtener análisis del documento de referencia
+        if not ref_document.ia_analisis:
+            return Response(
+                {'error': 'Documento de referencia sin análisis'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            ref_analysis = json.loads(ref_document.ia_analisis)
+            ref_embeddings = ref_analysis.get('embeddings', [])
+        except (json.JSONDecodeError, KeyError):
+            return Response(
+                {'error': 'Análisis del documento de referencia inválido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not ref_embeddings:
+            return Response(
+                {'error': 'Embeddings no disponibles para búsqueda'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        analyzer = get_analyzer()
+        
+        # Obtener todos los documentos del usuario con análisis
+        user_documents = MedicalDocument.objects.filter(
+            usuario=request.user,
+            ia_analisis__isnull=False
+        ).exclude(id=ref_doc_id)
+        
+        logger.info(f"Buscando {len(user_documents)} documentos similares a {ref_doc_id}")
+        
+        # Recopilar embeddings de documentos
+        doc_embeddings_list = []
+        doc_ids = []
+        
+        for doc in user_documents:
+            try:
+                doc_analysis = json.loads(doc.ia_analisis)
+                embeddings = doc_analysis.get('embeddings', [])
+                if embeddings:
+                    doc_embeddings_list.append(embeddings)
+                    doc_ids.append(doc.id)
+            except (json.JSONDecodeError, KeyError):
+                continue
+        
+        if not doc_embeddings_list:
+            return Response({
+                'message': 'No hay documentos similares disponibles',
+                'results': [],
+                'total': 0
+            }, status=status.HTTP_200_OK)
+        
+        # Realizar búsqueda semántica
+        similar_results = analyzer.search_similar_by_embeddings(
+            reference_embedding=ref_embeddings,
+            comparison_embeddings=doc_embeddings_list,
+            top_k=min(top_k, len(doc_embeddings_list))
+        )
+        
+        # Construir respuesta
+        results = []
+        for idx, (similarity_score, doc_idx) in enumerate(similar_results):
+            doc_id = doc_ids[doc_idx]
+            doc = MedicalDocument.objects.get(id=doc_id)
+            results.append({
+                'id': doc.id,
+                'tipo_documento': doc.tipo_documento,
+                'especialidad': doc.especialidad,
+                'similarity_score': float(similarity_score),
+                'created_at': doc.created_at.isoformat() if doc.created_at else None,
+                'rank': idx + 1
+            })
+        
+        logger.info(f"Búsqueda completada: {len(results)} documentos similares encontrados")
+        
+        return Response({
+            'reference_doc_id': ref_doc_id,
+            'total_results': len(results),
+            'results': results,
+            'search_method': 'MedSigLIP Semantic Search'
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.error(f"Error en búsqueda semántica: {str(e)}")
+        return Response(
+            {'error': f'Error en búsqueda: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def update_paciente_profile(request):
@@ -636,3 +932,347 @@ def update_paciente_profile(request):
             {'error': f'Error al actualizar perfil: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+# ==================== PERFIL ENDPOINTS ====================
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_profile(request):
+    """
+    Actualizar información completa del perfil del usuario
+    Recibe: nombre_completo, email, cedula, telefono, direccion, ciudad
+    Retorna: datos del usuario actualizado
+    """
+    try:
+        user = request.user
+        
+        # Actualizar campos del usuario
+        if 'email' in request.data:
+            user.email = request.data.get('email')
+        if 'nombre_completo' in request.data:
+            nombre_parts = request.data.get('nombre_completo').split(' ', 1)
+            user.first_name = nombre_parts[0]
+            user.last_name = nombre_parts[1] if len(nombre_parts) > 1 else ''
+        
+        user.save()
+        
+        # Actualizar datos del paciente
+        try:
+            paciente = Paciente.objects.get(usuario=user)
+            
+            if 'cedula' in request.data:
+                paciente.cedula = request.data.get('cedula')
+            if 'telefono' in request.data:
+                paciente.telefono = request.data.get('telefono')
+            if 'direccion' in request.data:
+                paciente.direccion = request.data.get('direccion')
+            if 'ciudad' in request.data:
+                paciente.ciudad = request.data.get('ciudad')
+            
+            paciente.save()
+            
+            paciente_serializer = PacienteDetailSerializer(paciente)
+        except Paciente.DoesNotExist:
+            paciente_serializer = None
+        
+        return Response({
+            'message': 'Perfil actualizado exitosamente',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+            },
+            'paciente': paciente_serializer.data if paciente_serializer else None
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response(
+            {'detail': f'Error al actualizar perfil: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """
+    Cambiar contraseña del usuario
+    Recibe: current_password, new_password
+    Retorna: confirmación de cambio
+    """
+    try:
+        user = request.user
+        current_password = request.data.get('current_password')
+        new_password = request.data.get('new_password')
+        
+        if not current_password or not new_password:
+            return Response(
+                {'detail': 'Se requieren la contraseña actual y la nueva contraseña'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verificar contraseña actual
+        if not user.check_password(current_password):
+            return Response(
+                {'detail': 'La contraseña actual es incorrecta'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Validar longitud mínima
+        if len(new_password) < 8:
+            return Response(
+                {'detail': 'La nueva contraseña debe tener al menos 8 caracteres'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Cambiar contraseña
+        user.set_password(new_password)
+        user.save()
+        
+        return Response({
+            'message': 'Contraseña actualizada exitosamente'
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response(
+            {'detail': f'Error al cambiar contraseña: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+# ==================== DOCUMENTO ENDPOINTS ====================
+
+@api_view(['POST', 'OPTIONS'])
+@permission_classes([AllowAny])
+@ratelimit(key='ip', rate='50/h', method='POST')
+def upload_document(request):
+    """
+    Endpoint para subir documentos médicos
+    
+    Rate Limit: 50 subidas por hora por IP
+    
+    Campo de archivo: documento
+    Campos opcionales: tipo_documento, descripcion, especialidad, medico_emisor
+    
+    Retorna: documentdata actualizado
+    """
+    import logging
+    from rest_framework_simplejwt.authentication import JWTAuthentication
+    from rest_framework_simplejwt.exceptions import InvalidToken, AuthenticationFailed
+    
+    logger = logging.getLogger(__name__)
+    
+    # Handle OPTIONS para CORS preflight
+    if request.method == 'OPTIONS':
+        return Response({'status': 'ok'}, status=200)
+    
+    # Validar JWT manualmente
+    logger.warning(f"=== UPLOAD MANUAL JWT CHECK ===")
+    auth_header = request.headers.get('Authorization', '')
+    logger.warning(f"Auth header: {auth_header[:50] if auth_header else 'NONE'}...")
+    
+    if not auth_header:
+        logger.warning(f"NO AUTH HEADER PROVIDED")
+        return Response(
+            {'detail': 'Authorization header requerido'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    try:
+        jwt_auth = JWTAuthentication()
+        auth_result = jwt_auth.authenticate(request)
+        
+        if auth_result is None:
+            logger.warning(f"JWT AUTHENTICATE RETURNED NONE")
+            return Response(
+                {'detail': 'No authentication provided'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        user, validated_token = auth_result
+        request.user = user
+        logger.warning(f"✅ JWT VALID - Usuario: {user.username}")
+        
+    except (InvalidToken, AuthenticationFailed) as e:
+        logger.error(f"❌ JWT VALIDATION FAILED: {str(e)}")
+        return Response(
+            {'detail': f'Token inválido: {str(e)}'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    except Exception as e:
+        logger.error(f"❌ AUTH EXCEPTION: {type(e).__name__}: {str(e)}")
+        return Response(
+            {'detail': f'Error de autenticación: {str(e)}'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    logger.warning(f"=== END JWT CHECK ===")
+    
+    if getattr(request, 'limited', False):
+        return Response(
+            {
+                'error': 'Límite de carga excedido',
+                'detail': 'Has excedido el límite de 20 subidas por hora',
+            },
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+            headers={'Retry-After': '3600'}
+        )
+
+    try:
+        if 'document' not in request.FILES:
+            return Response(
+                {'detail': 'Campo "document" requerido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        uploaded_file = request.FILES['document']
+
+        # Validar archivo
+        validation = validate_file_upload(uploaded_file, max_size_mb=50, allowed_types=[
+            'image/jpeg', 'image/png', 'image/tiff',
+            'application/pdf',
+            'image/x-dcm',  # DICOM
+        ])
+
+        if not validation['valid']:
+            return Response(
+                {'detail': validation['error']},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Crear documento
+        medical_doc = MedicalDocument.objects.create(
+            usuario=request.user,
+            archivo=uploaded_file,
+            nombre=request.data.get('descripcion', uploaded_file.name),
+            tipo_documento=request.data.get('tipo_documento', 'otro'),
+            descripcion=request.data.get('descripcion', ''),
+            especialidad=request.data.get('especialidad', ''),
+            medico_emisor=request.data.get('medico_emisor', ''),
+        )
+
+        return Response({
+            'message': 'Documento subido exitosamente',
+            'document': {
+                'id': medical_doc.id,
+                'nombre': medical_doc.nombre,
+                'tipo_documento': medical_doc.tipo_documento,
+                'archivo_url': medical_doc.archivo.url,
+                'creado_en': medical_doc.creado_en,
+            }
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return Response(
+            {'detail': f'Error al subir documento: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_documents(request):
+    """
+    Listar documentos del usuario autenticado
+    
+    Parámetros opcionales:
+    - tipo: filtrar por tipo de documento
+    - página: para paginación
+    """
+    try:
+        documentos = MedicalDocument.objects.filter(usuario=request.user)
+
+        # Filtrar por tipo si se especifica
+        tipo_filter = request.query_params.get('tipo')
+        if tipo_filter:
+            documentos = documentos.filter(tipo_documento=tipo_filter)
+
+        # Serializar
+        documentos_data = []
+        for doc in documentos[:50]:  # Límite de 50 documentos
+            documentos_data.append({
+                'id': doc.id,
+                'nombre': doc.nombre,
+                'tipo_documento': doc.tipo_documento,
+                'descripcion': doc.descripcion,
+                'archivo_url': doc.archivo.url,
+                'especialidad': doc.especialidad,
+                'medico_emisor': doc.medico_emisor,
+                'creado_en': doc.creado_en,
+                'actualizado_en': doc.actualizado_en,
+            })
+
+        return Response({
+            'total': len(documentos_data),
+            'documentos': documentos_data
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response(
+            {'detail': f'Error al listar documentos: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_document(request, doc_id):
+    """
+    Eliminar un documento específico (solo el propietario puede)
+    """
+    try:
+        medical_doc = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
+        medical_doc.archivo.delete()  # Eliminar archivo
+        medical_doc.delete()  # Eliminar registro
+
+        return Response({
+            'message': 'Documento eliminado exitosamente'
+        }, status=status.HTTP_200_OK)
+
+    except MedicalDocument.DoesNotExist:
+        return Response(
+            {'detail': 'Documento no encontrado'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {'detail': f'Error al eliminar documento: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+# ==================== DEBUG ENDPOINTS ====================
+
+@api_view(['GET', 'POST', 'OPTIONS'])
+@permission_classes([AllowAny])
+def debug_auth(request):
+    """
+    Endpoint de DEBUG para verificar autenticación
+    Sin protección, para diagnosticar problemas de JWT
+    """
+    if request.method == 'OPTIONS':
+        return Response({'status': 'ok'})
+    
+    return Response({
+        'ok': True,
+        'method': request.method,
+        'auth_header': request.headers.get('Authorization', 'NONE'),
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def debug_auth_protected(request):
+    """
+    Endpoint de DEBUG PROTEGIDO
+    Requiere autenticación para verificar si el JWT funciona
+    """
+    return Response({
+        'ok': True,
+        'user': request.user.username,
+        'message': 'Token IS válido!'
+    })
+

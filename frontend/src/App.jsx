@@ -1,19 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Prescription2, FileText, CloudUpload, CheckCircle, BoxArrowRight, Person, Heart } from 'react-bootstrap-icons';
+import { Prescription2, FileText, CloudUpload, CheckCircle, BoxArrowRight, Person, Heart, Gear } from 'react-bootstrap-icons';
 import Login from './Login';
 import Home from './Home';
 import Onboarding from './Onboarding';
+import Profile from './Profile';
+import DocumentUpload from './DocumentUpload';
+import Medications from './Medications';
 import './App.css';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
+  const [showMedications, setShowMedications] = useState(false);
   const [user, setUser] = useState(null);
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -31,6 +38,12 @@ function App() {
       checkOnboarding(parsedUser);
     }
   }, []);
+
+  // Guardar tema cuando cambia
+  useEffect(() => {
+    localStorage.setItem('theme', theme);
+    document.body.className = theme;
+  }, [theme]);
 
   // Función para verificar si el usuario necesita completar onboarding
   const checkOnboarding = (userData) => {
@@ -80,7 +93,7 @@ function App() {
         );
       }
     } catch (err) {
-      console.error('Error al cerrar sesión:', err);
+      // Error silencioso en logout
     } finally {
       // Limpiar localStorage
       localStorage.removeItem('access_token');
@@ -125,7 +138,6 @@ function App() {
       setFile(null);
       setTimeout(() => setStatus(''), 2000);
     } catch (err) {
-      console.error(err);
       setStatus('Error al subir: ' + (err.response?.data?.detail || 'Intenta nuevamente'));
     } finally {
       setLoading(false);
@@ -151,9 +163,43 @@ function App() {
     );
   }
 
+  // Si está autenticado y muestra perfil
+  if (showProfile) {
+    return (
+      <Profile 
+        user={user}
+        onLogout={handleLogout}
+        onBack={() => setShowProfile(false)}
+        theme={theme}
+        setTheme={setTheme}
+      />
+    );
+  }
+
+  // Si está autenticado y carga documentos
+  if (showDocuments) {
+    return (
+      <DocumentUpload
+        user={user}
+        onBack={() => setShowDocuments(false)}
+        theme={theme}
+      />
+    );
+  }
+
+  // Si está autenticado y ve medicamentos
+  if (showMedications) {
+    return (
+      <Medications
+        theme={theme}
+        onBack={() => setShowMedications(false)}
+      />
+    );
+  }
+
   // Dashboard principal
   return (
-    <div className="app-container">
+    <div className={`app-container ${theme}`}>
       {/* Header */}
       <header className="app-header">
         <div className="header-left">
@@ -167,6 +213,13 @@ function App() {
         </div>
 
         <div className="header-right">
+          <button 
+            className="btn-profile" 
+            onClick={() => setShowProfile(true)}
+            title="Ver perfil"
+          >
+            <Gear size={20} />
+          </button>
           <div className="user-info">
             <div className="user-avatar">
               <Person size={20} />
@@ -242,12 +295,20 @@ function App() {
 
               {status && (
                 <div className={`status-message ${status.includes('Error') ? 'error' : 'success'}`}>
-                  {status.includes('Error') ? '❌' : '✅'} {status}
+                  {status}
                 </div>
               )}
 
               <button type="submit" className="btn-upload" disabled={loading || !file}>
                 {loading ? 'Subiendo...' : 'Subir Documento'}
+              </button>
+
+              <button 
+                type="button" 
+                className="btn-upload-advanced"
+                onClick={() => setShowDocuments(true)}
+              >
+                📂 Ver Carga Avanzada
               </button>
             </form>
 
@@ -279,6 +340,14 @@ function App() {
               <span>Se mostrarán aquí los medicamentos extraídos de tus documentos</span>
             </div>
           </div>
+
+          <button 
+            className="btn-upload-advanced"
+            onClick={() => setShowMedications(true)}
+            style={{ marginTop: '20px' }}
+          >
+            💊 Gestionar Medicamentos
+          </button>
         </section>
       </main>
 

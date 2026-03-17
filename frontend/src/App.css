@@ -142,6 +142,27 @@ body {
   text-overflow: ellipsis;
 }
 
+.btn-profile {
+  padding: 10px 12px;
+  background: none;
+  border: 1.5px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-light);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.btn-profile:hover {
+  border-color: var(--secondary-color);
+  color: var(--secondary-color);
+  background: rgba(42, 129, 124, 0.05);
+}
+
 .btn-logout {
   padding: 10px 16px;
   background: none;
@@ -364,6 +385,29 @@ body {
   cursor: not-allowed;
 }
 
+.btn-upload-advanced {
+  width: 100%;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #4caf50, #388e3c);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  margin-top: 8px;
+}
+
+.btn-upload-advanced:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.45);
+}
+
+.btn-upload-advanced:active {
+  transform: translateY(0);
+}
+
 .upload-info {
   padding: 16px;
   background: var(--bg-light);
@@ -578,3 +622,90 @@ body {
     padding: 15px;
   }
 }
+
+/* ==================== TEMAS ==================== */
+
+/* Tema Claro (por defecto) */
+body.light {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+  color: #1a1a1a;
+}
+
+.app-container.light {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+  color: #1a1a1a;
+}
+
+.app-container.light .app-header {
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+.app-container.light .app-main {
+  background: transparent;
+}
+
+/* Tema Oscuro */
+body.dark {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #f0f0f0;
+}
+
+.app-container.dark {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #f0f0f0;
+}
+
+.app-container.dark .app-header {
+  background: rgba(22, 33, 62, 0.95);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.app-container.dark .app-main {
+  background: transparent;
+}
+
+.app-container.dark .panel {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f0f0f0;
+}
+
+.app-container.dark .panel:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.app-container.dark .empty-state {
+  color: rgba(240, 240, 240, 0.6);
+}
+
+.app-container.dark .section-header h2 {
+  color: #f0f0f0;
+}
+
+.app-container.dark .upload-label {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f0f0f0;
+}
+
+.app-container.dark .upload-label:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.app-container.dark input[type="file"] {
+  color: #f0f0f0;
+}
+
+.app-container.dark ::placeholder {
+  color: rgba(240, 240, 240, 0.5);
+}
+
+.app-container.dark .app-footer {
+  background: rgba(22, 33, 62, 0.9);
+  border-top-color: rgba(255, 255, 255, 0.1);
+  color: rgba(240, 240, 240, 0.7);
+}
+

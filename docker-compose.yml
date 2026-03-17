@@ -24,10 +24,51 @@ services:
     environment:
       - DEBUG=1
       - DATABASE_URL=postgres://admin:secret_pass@db:5432/hmed_db
+      - PYTHONUNBUFFERED=1
+      - AI_SERVICE_URL=http://ai:9000
+    depends_on:
+      - db
+      - ai
+    networks:
+      - hmed_network
+
+  ai:
+    build: ./backend
+    container_name: hmed_ai_service
+    command: >
+      sh -c "python -c '
+      import logging
+      import sys
+      logging.basicConfig(level=logging.INFO)
+      logger = logging.getLogger(__name__)
+      try:
+        from registros.analysis_service import get_analyzer
+        analyzer = get_analyzer()
+        logger.info(\"✓ AI Service initialized and ready\")
+        logger.info(f\"  Device: {analyzer.device}\")
+        logger.info(f\"  Model: MedSigLIP (google/medsiglip-448)\")
+        # Keep container running
+        import time
+        while True: time.sleep(1)
+      except Exception as e:
+        logger.error(f\"✗ AI Service failed: {str(e)}\")
+        sys.exit(1)
+      '"
+    volumes:
+      - ./backend:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgres://admin:secret_pass@db:5432/hmed_db
     depends_on:
       - db
     networks:
       - hmed_network
+    healthcheck:
+      test: ["CMD", "python", "-c", "from registros.analysis_service import get_analyzer; get_analyzer()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   frontend:
     build: ./frontend
@@ -38,27 +79,9 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://web:8000
+      - VITE_API_URL=http://localhost:8000
     depends_on:
       - web
-    networks:
-      - hmed_network
-
-  sonarqube:
-    image: sonarqube:community
-    container_name: sonarqube
-    environment:
-      - SONAR_JDBC_URL=jdbc:postgresql://db:5432/sonarqube
-      - SONAR_JDBC_USERNAME=admin
-      - SONAR_JDBC_PASSWORD=secret_pass
-      - SONAR_JDBC_DRIVER=org.postgresql.Driver
-    ports:
-      - "9000:9000"
-    volumes:
-      - sonarqube_data:/opt/sonarqube/data
-      - sonarqube_logs:/opt/sonarqube/logs
-    depends_on:
-      - db
     networks:
       - hmed_network
 
@@ -68,5 +91,3 @@ networks:
 
 volumes:
   postgres_data:
-  sonarqube_data:
-  sonarqube_logs:

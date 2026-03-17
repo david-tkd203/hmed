@@ -1,0 +1,30 @@
+# ===== AI/ML DEPENDENCIES FOR GOOGLE HEALTH AI MODELS =====
+# MedSigLIP: Medical image-text encoder for radiography, ecography, histopathology
+# MedGemma: Multimodal medical reasoning (27B parameters)
+
+# Core transformer library
+transformers>=4.36.0
+
+# PyTorch (lightweight CPU version for inference)
+torch>=2.1.0
+torchvision>=0.16.0
+
+# Image processing
+Pillow>=10.0.0
+opencv-python>=4.8.0
+
+# Numerical computing
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Google Vertex AI (optional, for cloud deployment)
+google-cloud-aiplatform>=1.43.0
+
+# Hugging Face model hub
+huggingface-hub>=0.19.0
+
+# Optional: For better performance
+accelerate>=0.24.0
+
+# Optional: For model quantization (reduce memory usage)
+bitsandbytes>=0.41.0

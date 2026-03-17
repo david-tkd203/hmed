@@ -58,3 +58,40 @@ class Medicamento(models.Model):
 
     def __str__(self):
         return self.nombre
+
+
+class MedicalDocument(models.Model):
+    """Modelo para almacenar documentos médicos generales (radiografías, análisis, etc.)"""
+    TIPO_DOCUMENTO_CHOICES = [
+        ('radiografia', 'Radiografía'),
+        ('analisis', 'Análisis/Laboratorio'),
+        ('ecografia', 'Ecografía'),
+        ('tomografia', 'Tomografía'),
+        ('resonancia', 'Resonancia Magnética'),
+        ('informe', 'Informe Médico'),
+        ('receta', 'Receta Médica'),
+        ('otro', 'Otro'),
+    ]
+
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='documentos_medicos')
+    tipo_documento = models.CharField(max_length=20, choices=TIPO_DOCUMENTO_CHOICES, default='otro')
+    nombre = models.CharField(max_length=255)
+    descripcion = models.TextField(blank=True, null=True)
+    archivo = models.FileField(upload_to='documentos_medicos/%Y/%m/%d/')
+    fecha_documento = models.DateField(blank=True, null=True, help_text='Fecha del documento original')
+    especialidad = models.CharField(max_length=100, blank=True, null=True)
+    medico_emisor = models.CharField(max_length=200, blank=True, null=True)
+    contenido_extraido = models.TextField(blank=True, null=True, help_text='Contenido extraído mediante OCR/IA')
+    ia_analisis = models.JSONField(blank=True, null=True, help_text='Análisis IA (MedSigLIP, MedGemma)')
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.nombre} - {self.usuario.first_name}"
+
+    class Meta:
+        ordering = ['-fecha_documento', '-creado_en']
+        indexes = [
+            models.Index(fields=['usuario', '-creado_en']),
+            models.Index(fields=['tipo_documento']),
+        ]

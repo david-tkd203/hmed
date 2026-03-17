@@ -54,9 +54,9 @@ export default function RateLimitError({ retryAfter, onRetry, endpoint }) {
 
         <div className="error-details">
           <ul>
-            <li>✓ Intentos que realizaste: Demasiados en poco tiempo</li>
-            <li>✓ Tu cuenta está protegida temporalmente</li>
-            <li>✓ El acceso será restaurado automáticamente</li>
+            <li>Intentos que realizaste: Demasiados en poco tiempo</li>
+            <li>Tu cuenta está protegida temporalmente</li>
+            <li>El acceso será restaurado automáticamente</li>
           </ul>
         </div>
 

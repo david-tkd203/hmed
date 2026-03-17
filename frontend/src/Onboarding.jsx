@@ -52,7 +52,6 @@ export default function Onboarding({ user, paciente, onComplete }) {
       onComplete();
     } catch (err) {
       setError(err.response?.data?.error || 'Error al guardar los datos');
-      console.error('Error:', err);
     } finally {
       setLoading(false);
     }
