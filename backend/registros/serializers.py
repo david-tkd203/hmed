@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from registros.models import Paciente
+from registros.models import Paciente, MedicalDocument
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -52,3 +52,51 @@ class RegisterSerializer(serializers.Serializer):
         if Paciente.objects.filter(numero_cedula=value).exists():
             raise serializers.ValidationError("La cédula ya está registrada")
         return value
+
+
+class MedicalDocumentSerializer(serializers.ModelSerializer):
+    """Serializer para documentos médicos con análisis IA"""
+    usuario_nombre = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = MedicalDocument
+        fields = [
+            'id', 'usuario', 'usuario_nombre', 'tipo_documento', 'nombre',
+            'descripcion', 'archivo', 'fecha_documento', 'especialidad',
+            'medico_emisor', 'contenido_extraido', 'ia_analisis',
+            'creado_en', 'actualizado_en'
+        ]
+        read_only_fields = ['id', 'contenido_extraido', 'ia_analisis', 'creado_en', 'actualizado_en']
+        extra_kwargs = {
+            'archivo': {'required': True},
+            'nombre': {'required': True},
+        }
+    
+    def get_usuario_nombre(self, obj):
+        """Obtener nombre completo del usuario"""
+        return f"{obj.usuario.first_name} {obj.usuario.last_name}".strip()
+
+
+class MedicalDocumentListSerializer(serializers.ModelSerializer):
+    """Serializer comprimido para listados"""
+    usuario_nombre = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = MedicalDocument
+        fields = [
+            'id', 'usuario_nombre', 'tipo_documento', 'nombre',
+            'fecha_documento', 'especialidad', 'creado_en',
+        ]
+    
+    def get_usuario_nombre(self, obj):
+        return f"{obj.usuario.first_name} {obj.usuario.last_name}".strip()
+
+
+class MedicalDocumentAnalysisSerializer(serializers.Serializer):
+    """Serializer para respuesta de análisis IA"""
+    documento_id = serializers.IntegerField()
+    documento_nombre = serializers.CharField()
+    tipo_documento = serializers.CharField()
+    analisis = serializers.JSONField()
+    contenido_extraido = serializers.CharField()
+    timestamp = serializers.DateTimeField()

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import axiosInstance from './api/axiosInstance';
 import { CheckCircle, XCircle, Phone, GeoAlt, ExclamationCircle, Heart } from 'react-bootstrap-icons';
 import './Onboarding.css';
 
@@ -33,15 +33,9 @@ export default function Onboarding({ user, paciente, onComplete }) {
     setError('');
 
     try {
-      const response = await axios.patch(
-        `${API_URL}/api/paciente/profile/`,
-        formData,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          }
-        }
+      const response = await axiosInstance.patch(
+        `/api/paciente/profile/`,
+        formData
       );
 
       // Actualizar localStorage con los datos nuevos

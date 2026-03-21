@@ -42,7 +42,7 @@ export default function AnalysisResults({
         <div className="analysis-results-modal">
           <div className="analysis-loading">
             <div className="loading-spinner"></div>
-            <p>{t('documents:analysis.analyzing')}</p>
+            <p>{t('analysis.analyzing')}</p>
           </div>
         </div>
       </div>
@@ -55,7 +55,7 @@ export default function AnalysisResults({
       <div className="analysis-results-overlay" onClick={onClose}>
         <div className="analysis-results-modal" onClick={(e) => e.stopPropagation()}>
           <div className="analysis-header">
-            <h2>{t('documents:analysis.error')}</h2>
+            <h2>{t('analysis.error')}</h2>
             <button className="close-button" onClick={onClose}>×</button>
           </div>
           <div className="analysis-error">
@@ -63,7 +63,7 @@ export default function AnalysisResults({
           </div>
           <div className="analysis-footer">
             <button className="btn-close" onClick={onClose}>
-              {t('documents:analysis.close')}
+              {t('analysis.close')}
             </button>
           </div>
         </div>
@@ -76,7 +76,7 @@ export default function AnalysisResults({
       <div className="analysis-results-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="analysis-header">
-          <h2>{t('documents:analysis.title')}</h2>
+          <h2>{t('analysis.title')}</h2>
           <button className="close-button" onClick={onClose}>×</button>
         </div>
 
@@ -86,21 +86,21 @@ export default function AnalysisResults({
             className={`tab-button ${activeTab === 'analysis' ? 'active' : ''}`}
             onClick={() => setActiveTab('analysis')}
           >
-            {t('documents:analysis.tabAnalysis')}
+            {t('analysis.tabAnalysis')}
           </button>
           <button
             className={`tab-button ${activeTab === 'classification' ? 'active' : ''}`}
             onClick={() => setActiveTab('classification')}
             disabled={!classificationData}
           >
-            {t('documents:analysis.tabClassification')}
+            {t('analysis.tabClassification')}
           </button>
           <button
             className={`tab-button ${activeTab === 'similar' ? 'active' : ''}`}
             onClick={() => setActiveTab('similar')}
             disabled={!similarDocuments || similarDocuments.length === 0}
           >
-            {t('documents:analysis.tabSimilar')}
+            {t('analysis.tabSimilar')}
           </button>
         </div>
 
@@ -130,7 +130,7 @@ export default function AnalysisResults({
         {/* Footer */}
         <div className="analysis-footer">
           <button className="btn-close" onClick={onClose}>
-            {t('documents:analysis.close')}
+            {t('analysis.close')}
           </button>
         </div>
       </div>
@@ -145,7 +145,7 @@ function AnalysisTab({ data, t, documentId }) {
   if (!data) {
     return (
       <div className="tab-content">
-        <p className="no-data">{t('documents:analysis.noAnalysis')}</p>
+        <p className="no-data">{t('analysis.noAnalysis')}</p>
       </div>
     );
   }
@@ -154,18 +154,18 @@ function AnalysisTab({ data, t, documentId }) {
     <div className="tab-content analysis-tab">
       {/* Metadata */}
       <div className="analysis-section">
-        <h3>{t('documents:analysis.metadata')}</h3>
+        <h3>{t('analysis.metadata')}</h3>
         <div className="metadata-grid">
           <div className="metadata-item">
-            <span className="label">{t('documents:analysis.documentId')}</span>
+            <span className="label">{t('analysis.documentId')}</span>
             <span className="value">{documentId}</span>
           </div>
           <div className="metadata-item">
-            <span className="label">{t('documents:analysis.model')}</span>
+            <span className="label">{t('analysis.model')}</span>
             <span className="value">{data.modelo || 'MedSigLIP-448px'}</span>
           </div>
           <div className="metadata-item">
-            <span className="label">{t('documents:analysis.confidence')}</span>
+            <span className="label">{t('analysis.confidence')}</span>
             <div className="confidence-bar">
               <div
                 className="confidence-fill"
@@ -179,15 +179,15 @@ function AnalysisTab({ data, t, documentId }) {
             </div>
           </div>
           <div className="metadata-item">
-            <span className="label">{t('documents:analysis.embeddingDim')}</span>
+            <span className="label">{t('analysis.embeddingDim')}</span>
             <span className="value">{data.embedding_dim || 448}</span>
           </div>
           <div className="metadata-item">
-            <span className="label">{t('documents:analysis.processingTime')}</span>
+            <span className="label">{t('analysis.processingTime')}</span>
             <span className="value">{(data.processing_time || 0).toFixed(2)}s</span>
           </div>
           <div className="metadata-item">
-            <span className="label">{t('documents:analysis.timestamp')}</span>
+            <span className="label">{t('analysis.timestamp')}</span>
             <span className="value">
               {new Date(data.timestamp).toLocaleString()}
             </span>
@@ -198,18 +198,18 @@ function AnalysisTab({ data, t, documentId }) {
       {/* Image Metadata */}
       {data.image_metadata && (
         <div className="analysis-section">
-          <h3>{t('documents:analysis.imageMetadata')}</h3>
+          <h3>{t('analysis.imageMetadata')}</h3>
           <div className="metadata-grid">
             <div className="metadata-item">
-              <span className="label">{t('documents:analysis.imageWidth')}</span>
+              <span className="label">{t('analysis.imageWidth')}</span>
               <span className="value">{data.image_metadata.width} px</span>
             </div>
             <div className="metadata-item">
-              <span className="label">{t('documents:analysis.imageHeight')}</span>
+              <span className="label">{t('analysis.imageHeight')}</span>
               <span className="value">{data.image_metadata.height} px</span>
             </div>
             <div className="metadata-item">
-              <span className="label">{t('documents:analysis.imageFormat')}</span>
+              <span className="label">{t('analysis.imageFormat')}</span>
               <span className="value">{data.image_metadata.format}</span>
             </div>
           </div>
@@ -219,16 +219,16 @@ function AnalysisTab({ data, t, documentId }) {
       {/* Embeddings Info */}
       {data.embeddings && (
         <div className="analysis-section">
-          <h3>{t('documents:analysis.embeddings')}</h3>
+          <h3>{t('analysis.embeddings')}</h3>
           <div className="embeddings-info">
             <p>
-              {t('documents:analysis.embeddingsDescription', {
+              {t('analysis.embeddingsDescription', {
                 count: data.embeddings.length || 0,
               })}
             </p>
             {data.embeddings.length > 0 && (
               <div className="embeddings-preview">
-                <p className="embeddings-label">{t('documents:analysis.preview')}:</p>
+                <p className="embeddings-label">{t('analysis.preview')}:</p>
                 <div className="embeddings-values">
                   {(Array.isArray(data.embeddings)
                     ? data.embeddings.slice(0, 10)
@@ -257,7 +257,7 @@ function ClassificationTab({ data, t }) {
   if (!data || !data.findings) {
     return (
       <div className="tab-content">
-        <p className="no-data">{t('documents:analysis.noClassification')}</p>
+        <p className="no-data">{t('analysis.noClassification')}</p>
       </div>
     );
   }
@@ -265,7 +265,7 @@ function ClassificationTab({ data, t }) {
   return (
     <div className="tab-content classification-tab">
       <div className="analysis-section">
-        <h3>{t('documents:analysis.findings')}</h3>
+        <h3>{t('analysis.findings')}</h3>
 
         {Object.keys(data.findings).length > 0 ? (
           <div className="findings-grid">
@@ -287,12 +287,12 @@ function ClassificationTab({ data, t }) {
             ))}
           </div>
         ) : (
-          <p className="no-data">{t('documents:analysis.noFindings')}</p>
+          <p className="no-data">{t('analysis.noFindings')}</p>
         )}
 
         {data.timestamp && (
           <p className="classification-timestamp">
-            {t('documents:analysis.classifiedAt')}:{' '}
+            {t('analysis.classifiedAt')}:{' '}
             {new Date(data.timestamp).toLocaleString()}
           </p>
         )}
@@ -308,7 +308,7 @@ function SimilarDocumentsTab({ documents, selected, onSelect, t }) {
   if (!documents || documents.length === 0) {
     return (
       <div className="tab-content">
-        <p className="no-data">{t('documents:analysis.noSimilar')}</p>
+        <p className="no-data">{t('analysis.noSimilar')}</p>
       </div>
     );
   }
@@ -317,7 +317,7 @@ function SimilarDocumentsTab({ documents, selected, onSelect, t }) {
     <div className="tab-content similar-tab">
       <div className="analysis-section">
         <h3>
-          {t('documents:analysis.similarCount', {
+          {t('analysis.similarCount', {
             count: documents.length,
           })}
         </h3>
@@ -333,7 +333,7 @@ function SimilarDocumentsTab({ documents, selected, onSelect, t }) {
               <div className="document-info">
                 <h4>{doc.tipo_documento || 'Documento'}</h4>
                 <p className="document-specialty">
-                  {doc.especialidad && `${t('documents:analysis.specialty')}: ${doc.especialidad}`}
+                  {doc.especialidad && `${t('analysis.specialty')}: ${doc.especialidad}`}
                 </p>
                 <p className="document-date">
                   {doc.created_at && new Date(doc.created_at).toLocaleDateString()}
@@ -358,7 +358,7 @@ function SimilarDocumentsTab({ documents, selected, onSelect, t }) {
 
         {documents.length >= 5 && (
           <p className="similar-info">
-            {t('documents:analysis.showingTop5')}
+            {t('analysis.showingTop5')}
           </p>
         )}
       </div>

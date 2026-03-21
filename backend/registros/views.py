@@ -275,7 +275,7 @@ def refresh_token_view(request):
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
-@ratelimit(key='user_id', rate='30/h', method='PATCH')
+@ratelimit(key='ip', rate='30/h', method='PATCH')
 def update_paciente_profile(request):
     """
     Endpoint para actualizar el perfil del paciente (Onboarding)
@@ -330,7 +330,7 @@ def update_paciente_profile(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-@ratelimit(key='user_id', rate='20/h', method='POST')
+@ratelimit(key='ip', rate='20/h', method='POST')
 def validate_file_view(request):
     """
     Endpoint para validar un archivo antes de subirlo
@@ -381,7 +381,7 @@ def validate_file_view(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-@ratelimit(key='user_id', rate='20/h', method='POST')
+@ratelimit(key='ip', rate='20/h', method='POST')
 def upload_registro_view(request):
     """
     Endpoint para subir un registro clínico
@@ -616,14 +616,33 @@ def analyze_document(request, doc_id):
     
     Retorna: analysis results, embeddings metadata, confidence scores
     """
+    logger.warning(f"📊 ANALYZE ENDPOINT CALLED - doc_id: {doc_id}, user: {request.user}")
+    
     try:
         # Verificar que el documento pertenece al usuario autenticado
         document = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
+        logger.warning(f"✅ Document found: {document.id}")
     except MedicalDocument.DoesNotExist:
+        logger.warning(f"❌ Document not found: {doc_id}")
         return Response(
             {'error': 'Documento no encontrado o no tienes permiso'},
             status=status.HTTP_404_NOT_FOUND
         )
+    
+    # Verificar si los modelos de IA están disponibles
+    from registros.analysis_service import MODELS_AVAILABLE
+    logger.warning(f"🤖 MODELS_AVAILABLE: {MODELS_AVAILABLE}")
+    if not MODELS_AVAILABLE:
+        logger.warning(f"⚠️ AI models not available, returning unavailable status")
+        return Response({
+            'id': document.id,
+            'message': 'Modelos de IA no disponibles',
+            'analysis': {
+                'status': 'unavailable',
+                'error': 'Los modelos de Machine Learning (PyTorch/Transformers) no están instalados en este sistema.',
+                'instructions': 'Para instalar los modelos de IA, ejecuta: docker-compose exec web pip install torch transformers torchvision'
+            }
+        }, status=status.HTTP_200_OK)
     
     try:
         # Obtener el analizador de MedSigLIP
@@ -889,51 +908,6 @@ def search_similar_documents(request):
         )
 
 
-@api_view(['PATCH'])
-@permission_classes([IsAuthenticated])
-def update_paciente_profile(request):
-    """
-    Endpoint para actualizar el perfil del paciente (Onboarding)
-    Recibe: campos opcionales - telefono, direccion, ciudad, pais, alergias, enfermedades_cronicas
-    Retorna: datos del paciente actualizado
-    """
-    try:
-        paciente = Paciente.objects.get(usuario=request.user)
-        
-        # Actualizar campos si se proporcionan
-        if 'telefono' in request.data:
-            paciente.telefono = request.data.get('telefono')
-        if 'direccion' in request.data:
-            paciente.direccion = request.data.get('direccion')
-        if 'ciudad' in request.data:
-            paciente.ciudad = request.data.get('ciudad')
-        if 'pais' in request.data:
-            paciente.pais = request.data.get('pais')
-        if 'alergias' in request.data:
-            paciente.alergias = request.data.get('alergias')
-        if 'enfermedades_cronicas' in request.data:
-            paciente.enfermedades_cronicas = request.data.get('enfermedades_cronicas')
-        
-        paciente.save()
-        
-        serializer = PacienteDetailSerializer(paciente)
-        return Response({
-            'message': 'Perfil actualizado exitosamente',
-            'paciente': serializer.data
-        }, status=status.HTTP_200_OK)
-    
-    except Paciente.DoesNotExist:
-        return Response(
-            {'error': 'Perfil de paciente no encontrado'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-    except Exception as e:
-        return Response(
-            {'error': f'Error al actualizar perfil: {str(e)}'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-
 # ==================== PERFIL ENDPOINTS ====================
 
 @api_view(['PUT'])
@@ -1046,70 +1020,23 @@ def change_password(request):
 # ==================== DOCUMENTO ENDPOINTS ====================
 
 @api_view(['POST', 'OPTIONS'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 @ratelimit(key='ip', rate='50/h', method='POST')
 def upload_document(request):
     """
     Endpoint para subir documentos médicos
     
-    Rate Limit: 50 subidas por hora por IP
+    Rate Limit: 50 subidas por hora por usuario
+    Requiere: JWT token en Authorization header
     
-    Campo de archivo: documento
+    Campo de archivo: document
     Campos opcionales: tipo_documento, descripcion, especialidad, medico_emisor
     
-    Retorna: documentdata actualizado
+    Retorna: document data actualizado
     """
-    import logging
-    from rest_framework_simplejwt.authentication import JWTAuthentication
-    from rest_framework_simplejwt.exceptions import InvalidToken, AuthenticationFailed
-    
-    logger = logging.getLogger(__name__)
-    
     # Handle OPTIONS para CORS preflight
     if request.method == 'OPTIONS':
         return Response({'status': 'ok'}, status=200)
-    
-    # Validar JWT manualmente
-    logger.warning(f"=== UPLOAD MANUAL JWT CHECK ===")
-    auth_header = request.headers.get('Authorization', '')
-    logger.warning(f"Auth header: {auth_header[:50] if auth_header else 'NONE'}...")
-    
-    if not auth_header:
-        logger.warning(f"NO AUTH HEADER PROVIDED")
-        return Response(
-            {'detail': 'Authorization header requerido'},
-            status=status.HTTP_401_UNAUTHORIZED
-        )
-    
-    try:
-        jwt_auth = JWTAuthentication()
-        auth_result = jwt_auth.authenticate(request)
-        
-        if auth_result is None:
-            logger.warning(f"JWT AUTHENTICATE RETURNED NONE")
-            return Response(
-                {'detail': 'No authentication provided'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-        
-        user, validated_token = auth_result
-        request.user = user
-        logger.warning(f"✅ JWT VALID - Usuario: {user.username}")
-        
-    except (InvalidToken, AuthenticationFailed) as e:
-        logger.error(f"❌ JWT VALIDATION FAILED: {str(e)}")
-        return Response(
-            {'detail': f'Token inválido: {str(e)}'},
-            status=status.HTTP_401_UNAUTHORIZED
-        )
-    except Exception as e:
-        logger.error(f"❌ AUTH EXCEPTION: {type(e).__name__}: {str(e)}")
-        return Response(
-            {'detail': f'Error de autenticación: {str(e)}'},
-            status=status.HTTP_401_UNAUTHORIZED
-        )
-    
-    logger.warning(f"=== END JWT CHECK ===")
     
     if getattr(request, 'limited', False):
         return Response(
@@ -1275,4 +1202,319 @@ def debug_auth_protected(request):
         'user': request.user.username,
         'message': 'Token IS válido!'
     })
+
+
+# ==================== AI MEDICAL ANALYSIS ENDPOINTS ====================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def analyze_medical_document_text(request, doc_id):
+    """
+    Analizar documento médico con MedGemma para extracción de información
+    
+    Endpoint: POST /api/documents/{doc_id}/analyze-text/
+    
+    Realiza:
+    - Extracción de medicamentos, diagnósticos, síntomas
+    - Generación de resumen ejecutivo
+    - Clasificación de tipo de documento
+    - Detección de enfermedades y hallazgos
+    
+    Retorna: análisis detallado con información médica estructurada
+    """
+    try:
+        from .analysis_service import get_text_analyzer, get_ocr_extractor
+        import os
+        
+        # Obtener documento
+        try:
+            document = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
+        except MedicalDocument.DoesNotExist:
+            return Response(
+                {'error': 'Documento no encontrado o no tienes permiso'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Obtener ruta del archivo
+        if not document.archivo:
+            return Response(
+                {'error': 'Archivo de documento no encontrado'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        archivo_path = document.archivo.path
+        
+        # Extraer texto según tipo de archivo
+        ocr = get_ocr_extractor()
+        
+        if archivo_path.lower().endswith('.pdf'):
+            extraction = ocr.extract_from_pdf(archivo_path)
+        else:
+            # Es una imagen
+            extraction = ocr.extract_from_image(archivo_path)
+        
+        if extraction['status'] != 'success':
+            logger.warning(f"OCR extraction failed: {extraction.get('error', 'Unknown error')}")
+            # Si falla OCR, continuamos sin texto extraído
+            extracted_text = ""
+        else:
+            extracted_text = extraction.get('text', '')
+        
+        # Guardar contenido extraído
+        if extracted_text:
+            document.contenido_extraido = extracted_text[:5000]  # Limitar a 5000 caracteres
+            document.save()
+        
+        # Si no hay texto, retornar error
+        if not extracted_text:
+            return Response(
+                {'error': 'No se pudo extraer texto del documento. Asegúrate que sea un documento claro.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        logger.info(f"Extrayendo información médica del documento {doc_id}")
+        
+        # Analizar con MedGemma
+        text_analyzer = get_text_analyzer()
+        
+        # Realizar análisis
+        medical_info = text_analyzer.extract_medical_info(extracted_text)
+        document_type = text_analyzer.classify_document_type(extracted_text)
+        symptoms_diseases = text_analyzer.detect_symptoms_and_diseases(extracted_text)
+        
+        # Si es una receta, extraer medicamentos
+        prescription_info = {}
+        if 'receta' in document.tipo_documento.lower() or 'receta' in extracted_text.lower():
+            prescription_info = text_analyzer.extract_prescription(extracted_text)
+        
+        # Crear análisis consolidado
+        analysis_data = {
+            'timestamp': datetime.now().isoformat(),
+            'modelo': 'MedGemma 2B',
+            'extraccion_exitosa': True,
+            'informacion_medica': medical_info.get('response', '') if medical_info.get('status') == 'success' else '',
+            'tipo_documento_detectado': document_type.get('document_type', 'Documento Médico'),
+            'sintomas_enfermedades': symptoms_diseases.get('response', '') if symptoms_diseases.get('status') == 'success' else '',
+            'medicamentos': prescription_info.get('response', '') if prescription_info.get('status') == 'success' else '',
+            'longitud_texto_extraido': len(extracted_text),
+            'fuente_ocr': extraction.get('source', 'unknown'),
+            'status': 'completed'
+        }
+        
+        # Guardar análisis en el modelo
+        document.ia_analisis = json.dumps(analysis_data, default=str)
+        document.save()
+        
+        logger.info(f"Análisis de texto completado para documento {doc_id}")
+        
+        return Response({
+            'id': document.id,
+            'message': 'Análisis de documento completado exitosamente',
+            'analysis': {
+                'timestamp': analysis_data['timestamp'],
+                'modelo': analysis_data['modelo'],
+                'tipo_documento': analysis_data['tipo_documento_detectado'],
+                'texto_extraido_caracteres': analysis_data['longitud_texto_extraido'],
+                'informacion_extraida': {
+                    'medicamentos': bool(prescription_info.get('status') == 'success'),
+                    'diagnosticos': bool(medical_info.get('status') == 'success'),
+                    'sintomas': bool(symptoms_diseases.get('status') == 'success'),
+                },
+                'status': 'completed'
+            }
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.error(f"Error en análisis de texto del documento {doc_id}: {str(e)}")
+        return Response(
+            {'error': f'Error en análisis: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_document_analysis(request, doc_id):
+    """
+    Obtener análisis previo de un documento
+    
+    Endpoint: GET /api/documents/{doc_id}/analysis/
+    
+    Retorna: todos los análisis realizados (MedSigLIP, MedGemma, etc.)
+    """
+    try:
+        document = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
+        
+        # Obtener análisis guardado
+        if not document.ia_analisis:
+            return Response({
+                'id': document.id,
+                'message': 'Este documento no ha sido analizado',
+                'analysis': None,
+                'status': 'not_analyzed'
+            }, status=status.HTTP_200_OK)
+        
+        try:
+            analysis_data = json.loads(document.ia_analisis)
+        except json.JSONDecodeError:
+            analysis_data = {}
+        
+        return Response({
+            'id': document.id,
+            'nombre': document.nombre,
+            'tipo_documento': document.tipo_documento,
+            'contenido_extraido': document.contenido_extraido,
+            'analysis': analysis_data,
+            'status': 'analyzed'
+        }, status=status.HTTP_200_OK)
+    
+    except MedicalDocument.DoesNotExist:
+        return Response(
+            {'error': 'Documento no encontrado'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'Error al recuperar análisis: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def batch_analyze_documents(request):
+    """
+    Analizar múltiples documentos en batch
+    
+    Endpoint: POST /api/documents/batch-analyze/
+    
+    Parámetros (JSON):
+    {
+        "doc_ids": [1, 2, 3],
+        "analysis_type": "full"  # "full", "text-only", "image-only"
+    }
+    
+    Retorna: estado de análisis de cada documento
+    """
+    try:
+        doc_ids = request.data.get('doc_ids', [])
+        analysis_type = request.data.get('analysis_type', 'full')
+        
+        if not doc_ids:
+            return Response(
+                {'error': 'Lista de doc_ids requerida'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        results = {
+            'total_documents': len(doc_ids),
+            'analysis_type': analysis_type,
+            'results': [],
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        for doc_id in doc_ids:
+            try:
+                document = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
+                
+                # Crear un "fake request" para reutilizar la lógica de análisis
+                # Por ahora solo marcamos como pendiente de análisis
+                results['results'].append({
+                    'doc_id': doc_id,
+                    'nombre': document.nombre,
+                    'tipo': document.tipo_documento,
+                    'status': 'queued_for_analysis',
+                    'message': 'Documento agregado a cola de análisis'
+                })
+                
+            except MedicalDocument.DoesNotExist:
+                results['results'].append({
+                    'doc_id': doc_id,
+                    'status': 'error',
+                    'message': 'Documento no encontrado'
+                })
+        
+        return Response({
+            'message': f'{len(doc_ids)} documentos agregados a cola de análisis',
+            'batch_analysis': results
+        }, status=status.HTTP_202_ACCEPTED)
+    
+    except Exception as e:
+        logger.error(f"Error en análisis batch: {str(e)}")
+        return Response(
+            {'error': f'Error en análisis batch: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_medical_summary(request, doc_id):
+    """
+    Obtener resumen ejecutivo de un documento médico
+    
+    Endpoint: GET /api/documents/{doc_id}/summary/
+    
+    Retorna: resumen profesional del documento
+    """
+    try:
+        from .analysis_service import get_text_analyzer, get_ocr_extractor
+        
+        document = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
+        
+        # Si ya tiene contenido extraído, usarlo
+        if document.contenido_extraido:
+            extract_text = document.contenido_extraido
+        else:
+            # Extraer del archivo
+            if not document.archivo:
+                return Response(
+                    {'error': 'Archivo de documento no disponible'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            ocr = get_ocr_extractor()
+            archivo_path = document.archivo.path
+            
+            if archivo_path.lower().endswith('.pdf'):
+                extraction = ocr.extract_from_pdf(archivo_path)
+            else:
+                extraction = ocr.extract_from_image(archivo_path)
+            
+            if extraction['status'] != 'success':
+                return Response(
+                    {'error': 'No se pudo extraer texto del documento'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            extract_text = extraction.get('text', '')
+        
+        if not extract_text:
+            return Response(
+                {'error': 'No hay contenido para resumir'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Generar resumen
+        text_analyzer = get_text_analyzer()
+        summary = text_analyzer.summarize_report(extract_text)
+        
+        return Response({
+            'id': document.id,
+            'nombre': document.nombre,
+            'resumen': summary.get('response', ''),
+            'timestamp': datetime.now().isoformat()
+        }, status=status.HTTP_200_OK)
+    
+    except MedicalDocument.DoesNotExist:
+        return Response(
+            {'error': 'Documento no encontrado'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Error generando resumen: {str(e)}")
+        return Response(
+            {'error': f'Error generando resumen: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 

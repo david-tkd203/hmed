@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from './api/axiosInstance';
 import { Prescription2, FileText, CloudUpload, CheckCircle, BoxArrowRight, Person, Heart, Gear } from 'react-bootstrap-icons';
 import Login from './Login';
 import Home from './Home';
@@ -81,15 +81,9 @@ function App() {
     try {
       const accessToken = localStorage.getItem('access_token');
       if (accessToken) {
-        await axios.post(
-          `${API_URL}/api/logout/`,
-          {},
-          {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            }
-          }
+        await axiosInstance.post(
+          `/api/logout/`,
+          {}
         );
       }
     } catch (err) {
@@ -123,15 +117,9 @@ function App() {
       setLoading(true);
       setStatus('Subiendo...');
       
-      await axios.post(
-        `${API_URL}/api/registros/`,
-        formData,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'multipart/form-data',
-          }
-        }
+      await axiosInstance.post(
+        `/api/registro/upload/`,
+        formData
       );
       
       setStatus('¡Subido con éxito!');
@@ -315,10 +303,35 @@ function App() {
             <div className="upload-info">
               <h3>Documentos Aceptados:</h3>
               <ul>
-                <li>📄 Recetas médicas</li>
-                <li>📋 Informes clínicos</li>
-                <li>🔬 Resultados de laboratorio</li>
-                <li>🩺 Exámenes médicos</li>
+                <li>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
+                  Recetas médicas
+                </li>
+                <li>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                  </svg>
+                  Informes clínicos
+                </li>
+                <li>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <circle cx="12" cy="12" r="6"></circle>
+                    <circle cx="12" cy="12" r="2"></circle>
+                  </svg>
+                  Resultados de laboratorio
+                </li>
+                <li>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"></path>
+                    <path d="M12 6v6h4"></path>
+                  </svg>
+                  Exámenes médicos
+                </li>
               </ul>
             </div>
           </section>

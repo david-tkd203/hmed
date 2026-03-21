@@ -16,7 +16,7 @@ services:
 
   web:
     build: ./backend
-    command: python manage.py runserver 0.0.0.0:8000
+    command: bash /app/entrypoint.sh
     volumes:
       - ./backend:/app
     ports:
@@ -28,7 +28,6 @@ services:
       - AI_SERVICE_URL=http://ai:9000
     depends_on:
       - db
-      - ai
     networks:
       - hmed_network
 

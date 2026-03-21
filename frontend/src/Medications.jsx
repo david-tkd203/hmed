@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from './api/axiosInstance';
 import { ArrowLeft, Search, Prescription2, ExclamationCircle, Gear } from 'react-bootstrap-icons';
 import { useTranslation } from 'react-i18next';
 import './Medications.css';

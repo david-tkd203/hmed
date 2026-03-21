@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import axios from 'axios';
 import { CloudUpload, FileEarmarkText, X, CheckCircle, ExclamationCircle, ArrowClockwise, Eye } from 'react-bootstrap-icons';
 import { useTranslation } from 'react-i18next';
 import AnalysisResults from './components/AnalysisResults';
+import axiosInstance from './api/axiosInstance';
 import './DocumentUpload.css';
 
 export default function DocumentUpload({ user, onBack, theme }) {
@@ -17,8 +17,7 @@ export default function DocumentUpload({ user, onBack, theme }) {
   const fileInputRef = useRef(null);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  const accessToken = localStorage.getItem('access_token');
-  
+
   // Tipos MIME aceptados
   const ALLOWED_TYPES = {
     'image/jpeg': ['.jpg', '.jpeg'],
@@ -138,14 +137,10 @@ export default function DocumentUpload({ user, onBack, theme }) {
     formData.append('descripcion', fileObj.file.name);
 
     try {
-      
-      const response = await axios.post(
-        `${API_URL}/api/documents/upload/`,
+      const response = await axiosInstance.post(
+        `/api/documents/upload/`,
         formData,
         {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round(
               (progressEvent.loaded * 100) / progressEvent.total
@@ -159,7 +154,7 @@ export default function DocumentUpload({ user, onBack, theme }) {
       );
 
       // Guardar ID del documento para análisis
-      const uploadedDocId = response.data.id;
+      const uploadedDocId = response.data.document.id;
       setFiles(prev => prev.map(f =>
         f.id === fileObj.id ? { ...f, uploaded: true, docId: uploadedDocId } : f
       ));
@@ -185,7 +180,12 @@ export default function DocumentUpload({ user, onBack, theme }) {
   };
 
   const analyzeDocument = async (fileObj) => {
-    if (!fileObj.docId) return;
+    console.log('📊 Iniciando análisis para documento:', { fileId: fileObj.id, docId: fileObj.docId });
+    
+    if (!fileObj.docId) {
+      console.error('❌ No hay docId para el archivo');
+      return;
+    }
 
     setAnalysisState(prev => ({
       ...prev,
@@ -193,15 +193,14 @@ export default function DocumentUpload({ user, onBack, theme }) {
     }));
 
     try {
-      const response = await axios.post(
-        `${API_URL}/api/documents/${fileObj.docId}/analyze/`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          }
-        }
+      console.log(`🔄 Llamando a POST /api/documents/${fileObj.docId}/analyze/`);
+      
+      const response = await axiosInstance.post(
+        `/api/documents/${fileObj.docId}/analyze/`,
+        {}
       );
+
+      console.log('✅ Análisis completado:', response.data);
 
       setAnalysisState(prev => ({
         ...prev,
@@ -221,7 +220,9 @@ export default function DocumentUpload({ user, onBack, theme }) {
       });
       setShowAnalysisModal(true);
     } catch (error) {
-      const errorMsg = error.response?.data?.error || error.message || 'Error en análisis';
+      console.error('❌ Error en análisis:', error);
+      const errorMsg = error.response?.data?.error || error.response?.data?.detail || error.message || 'Error en análisis';
+      console.error('📨 Mensaje de error:', errorMsg);
       setAnalysisState(prev => ({
         ...prev,
         [fileObj.id]: { loading: false, error: errorMsg }

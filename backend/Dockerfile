@@ -27,6 +27,9 @@ RUN pip install --no-cache-dir -r requirements_ai.txt || echo "IA dependencies i
 # 6. Copiamos el resto del código del proyecto
 COPY . /app/
 
+# 6.5. Hacemos el script de entrada ejecutable
+RUN chmod +x /app/entrypoint.sh
+
 # 7. Puerto por donde corre Django
 EXPOSE 8000
 

@@ -7,6 +7,7 @@ MedSigLIP es un encoder de imagen-texto médico optimizado para:
 - Histopatología
 - Dermatología
 
+GitHub: https://github.com/google-health/medsiglip
 Uso: Analiza imágenes médicas y genera embeddings para clasificación y búsqueda
 """
 
@@ -14,19 +15,33 @@ import logging
 from typing import Dict, List, Tuple, Optional
 import io
 import json
-
-try:
-    import torch
-    import torch.nn.functional as F
-    from PIL import Image
-    from transformers import AutoModel, AutoProcessor
-    import numpy as np
-    MODELS_AVAILABLE = True
-except ImportError:
-    MODELS_AVAILABLE = False
-    logging.warning("TensorFlow/PyTorch models not available. Install transformers package.")
+from PIL import Image
+import numpy as np
+import cv2
 
 logger = logging.getLogger(__name__)
+
+# Intentar cargar las dependencias de IA de Google Health
+MODELS_AVAILABLE = False
+MEDSIGLIP_MODE = None  # 'local' o 'vertex-ai'
+
+try:
+    # Intentar cargar MedSigLIP localmente (requiere TensorFlow lightweight, no PyTorch)
+    from transformers import AutoModel, AutoProcessor
+    import tensorflow as tf
+    logger.info("✓ TensorFlow available - using MedSigLIP locally")
+    MODELS_AVAILABLE = True
+    MEDSIGLIP_MODE = 'local'
+except ImportError:
+    try:
+        # Alternativa: Usar Vertex AI API de Google
+        from google.cloud import aiplatform
+        logger.info("✓ Google Cloud SDK available - using Vertex AI API for MedSigLIP")
+        MODELS_AVAILABLE = True
+        MEDSIGLIP_MODE = 'vertex-ai'
+    except ImportError as e:
+        logger.warning(f"⚠ MedSigLIP not available: {e}. Install google-cloud-aiplatform or transformers+tensorflow")
+        MODELS_AVAILABLE = False
 
 # Configuración de modelos
 MODEL_CONFIG = {
@@ -401,32 +416,361 @@ class MedicalImageProcessor:
         if image.mode != 'RGB':
             image = image.convert('RGB')
         return image
+
+
+class MedGemmaAnalyzer:
+    """
+    Analizador de documentos médicos usando MedGemma 2B de Google Health AI
+    
+    Características:
+    - Extracción de información clínica de textos
+    - Análisis y resumen de reportes médicos
+    - Extracción de medicamentos, diagnósticos, tratamientos
+    - Clasificación de tipos de documentos
+    - Generación de análisis estructurado
+    """
+    
+    _instance = None
+    _model = None
+    _tokenizer = None
+    
+    def __new__(cls):
+        """Singleton pattern para cargar modelo solo una vez"""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+    
+    def __init__(self):
+        """Inicializar analizador y cargar modelo si no está cargado"""
+        if self._initialized:
+            return
+            
+        if not MODELS_AVAILABLE:
+            raise RuntimeError(
+                "Modelos AI no disponibles. "
+                "Instala: pip install -r requirements_ai.txt"
+            )
+        
+        try:
+            logger.info("Cargando MedGemma 2B desde Hugging Face...")
+            
+            # Cargar tokenizador y modelo
+            from transformers import AutoTokenizer, AutoModelForCausalLM
+            
+            model_id = 'google/medgemma-2b'
+            self.__class__._tokenizer = AutoTokenizer.from_pretrained(model_id)
+            self.__class__._model = AutoModelForCausalLM.from_pretrained(model_id)
+            
+            # Mover a GPU si está disponible
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.__class__._model = self.__class__._model.to(device)
+            self.__class__._model.eval()
+            
+            self.device = device
+            self._initialized = True
+            logger.info(f"MedGemma cargado exitosamente en {device}")
+            
+        except Exception as e:
+            logger.error(f"Error cargando MedGemma: {str(e)}")
+            raise
+    
+    def extract_medical_info(self, text: str, max_length: int = 500) -> Dict:
+        """
+        Extraer información médica de un texto
+        
+        Returns:
+            Dict con medicamentos, diagnósticos, tratamientos, síntomas
+        """
+        try:
+            prompt = f"""Analiza el siguiente texto médico y extrae:
+1. Medicamentos (nombre, dosis, frecuencia)
+2. Diagnósticos
+3. Síntomas
+4. Tratamientos recomendados
+5. Restricciones/Contraindicaciones
+6. Seguimiento recomendado
+
+Texto médico:
+{text}
+
+Responde en formato JSON estructurado."""
+
+            return self._generate_response(prompt, max_length=max_length)
+            
+        except Exception as e:
+            logger.error(f"Error extrayendo información médica: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
+    
+    def summarize_report(self, text: str, max_length: int = 300) -> Dict:
+        """
+        Generar resumen ejecutivo de un reporte médico
+        
+        Returns:
+            Dict con resumen estructurado
+        """
+        try:
+            prompt = f"""Resume el siguiente reporte médico en máximo 3 párrafos.
+Incluye:
+- Hallazgos principales
+- Diagnóstico
+- Recomendaciones
+
+Reporte:
+{text[:2000]}
+
+Proporciona un resumen conciso y profesional."""
+
+            return self._generate_response(prompt, max_length=max_length)
+            
+        except Exception as e:
+            logger.error(f"Error resumiendo reporte: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
+    
+    def classify_document_type(self, text: str) -> Dict:
+        """
+        Clasificar tipo de documento médico
+        
+        Returns:
+            Dict con tipo probable y confianza
+        """
+        try:
+            types = [
+                'Radiografía', 'Análisis de Laboratorio', 'Ecografía',
+                'Tomografía', 'Resonancia Magnética', 'Informe Médico',
+                'Receta Médica', 'Historia Clínica', 'Nota de Evolución'
+            ]
+            
+            prompt = f"""Clasifica el siguiente documento médico.
+Selecciona UNA de estas opciones: {', '.join(types)}
+
+Documento:
+{text[:1500]}
+
+Responde solo con el tipo de documento, sin explicaciones."""
+
+            result = self._generate_response(prompt, max_length=50)
+            
+            return {
+                'status': 'success',
+                'document_type': result.get('response', 'Documento Médico'),
+            }
+            
+        except Exception as e:
+            logger.error(f"Error clasificando documento: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
+    
+    def detect_symptoms_and_diseases(self, text: str) -> Dict:
+        """
+        Detectar síntomas y enfermedades en el texto
+        
+        Returns:
+            Dict con síntomas y enfermedades identificadas
+        """
+        try:
+            prompt = f"""Identifica todos los síntomas y enfermedades mencionados en el siguiente texto médico.
+
+Texto:
+{text}
+
+Proporciona listas separadas para:
+1. Síntomas
+2. Enfermedades/Diagnósticos
+3. Hallazgos clínicos
+
+Sé específico y detallado."""
+
+            return self._generate_response(prompt, max_length=400)
+            
+        except Exception as e:
+            logger.error(f"Error detectando síntomas: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
+    
+    def extract_prescription(self, text: str) -> Dict:
+        """
+        Extraer detalles de prescripción farmacéutica
+        
+        Returns:
+            Dict con medicamentos y sus detalles
+        """
+        try:
+            prompt = f"""Extrae los medicamentos prescritos del siguiente texto.
+Para cada medicamento incluye:
+- Nombre
+- Dosis
+- Frecuencia
+- Duración
+- Vía de administración
+- Contraindicaciones (si aplica)
+
+Texto:
+{text}
+
+Estructura la respuesta como lista ordenada."""
+
+            return self._generate_response(prompt, max_length=500)
+            
+        except Exception as e:
+            logger.error(f"Error extrayendo prescripción: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
+    
+    def _generate_response(self, prompt: str, max_length: int = 300) -> Dict:
+        """
+        Generar respuesta usando MedGemma
+        
+        Args:
+            prompt: texto para el modelo
+            max_length: longitud máxima de respuesta
+        
+        Returns:
+            Dict con respuesta
+        """
+        try:
+            inputs = self.__class__._tokenizer(
+                prompt,
+                return_tensors="pt",
+                truncation=True,
+                max_length=1024
+            )
+            
+            # Mover a device
+            for key in inputs:
+                if hasattr(inputs[key], 'to'):
+                    inputs[key] = inputs[key].to(self.device)
+            
+            # Generar texto
+            with torch.no_grad():
+                outputs = self.__class__._model.generate(
+                    **inputs,
+                    max_length=max_length,
+                    temperature=0.7,
+                    top_p=0.9,
+                    do_sample=True,
+                    pad_token_id=self.__class__._tokenizer.eos_token_id,
+                )
+            
+            response_text = self.__class__._tokenizer.decode(
+                outputs[0],
+                skip_special_tokens=True
+            )
+            
+            # Limpiar respuesta
+            response_text = response_text.replace(prompt, '').strip()
+            
+            return {
+                'status': 'success',
+                'response': response_text,
+                'length': len(response_text),
+                'model': 'MedGemma 2B',
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generando respuesta: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
+
+
+class DocumentOCRExtractor:
+    """
+    Extractor de texto de documentos médicos (PDFs, imágenes)
+    Usa OCR y procesamiento de imágenes
+    """
     
     @staticmethod
-    def resize_if_needed(image: "Image.Image",
-                        max_size: int = 2048) -> "Image.Image":
-        """Redimensionar imagen si es necesario"""
-        if max(image.size) > max_size:
-            image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-        return image
+    def extract_from_image(image_path: str) -> Dict:
+        """
+        Extraer texto de imagen médica usando OCR
+        
+        Nota: Requiere pytesseract y tesseract instalados
+        """
+        try:
+            try:
+                import pytesseract
+            except ImportError:
+                logger.warning("pytesseract no disponible, usando extracción básica")
+                return {'status': 'warning', 'text': ''}
+            
+            image = Image.open(image_path)
+            
+            # Preprocesar imagen
+            if image.size[0] > 2000 or image.size[1] > 2000:
+                image.thumbnail((2000, 2000))
+            
+            # Convertir a escala de grises para mejor OCR
+            if image.mode != 'L':
+                image = image.convert('L')
+            
+            # Extraer texto
+            text = pytesseract.image_to_string(
+                image,
+                lang='spa+eng',  # Español e Inglés
+                config='--psm 3'
+            )
+            
+            return {
+                'status': 'success',
+                'text': text,
+                'source': 'OCR',
+                'confidence': 'medium',
+            }
+            
+        except Exception as e:
+            logger.error(f"Error extrayendo texto de imagen: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
+    
+    @staticmethod
+    def extract_from_pdf(pdf_path: str) -> Dict:
+        """
+        Extraer texto de PDF médico
+        
+        Nota: Requiere PyPDF2 o pdfplumber
+        """
+        try:
+            try:
+                import PyPDF2
+                pdf_available = True
+            except ImportError:
+                pdf_available = False
+                logger.warning("PyPDF2 no disponible")
+            
+            if not pdf_available:
+                return {'status': 'error', 'error': 'PyPDF2 no instalado'}
+            
+            text = ""
+            with open(pdf_path, 'rb') as pdf_file:
+                reader = PyPDF2.PdfReader(pdf_file)
+                for page in reader.pages:
+                    text += page.extract_text() + "\n"
+            
+            return {
+                'status': 'success',
+                'text': text.strip(),
+                'pages': len(reader.pages),
+                'source': 'PDF',
+            }
+            
+        except Exception as e:
+            logger.error(f"Error extrayendo texto de PDF: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
 
 
-# Singleton instance
-_analyzer_instance = None
+# ==================== FUNCIONES DE ACCESO ====================
 
+def get_image_analyzer() -> MedSigLIPAnalyzer:
+    """Obtener instancia de analizador de imágenes"""
+    return MedSigLIPAnalyzer()
+
+
+def get_text_analyzer() -> MedGemmaAnalyzer:
+    """Obtener instancia de analizador de texto"""
+    return MedGemmaAnalyzer()
+
+
+def get_ocr_extractor() -> DocumentOCRExtractor:
+    """Obtener instancia de extractor OCR"""
+    return DocumentOCRExtractor()
+
+
+# Alias para compatibilidad
 def get_analyzer() -> MedSigLIPAnalyzer:
-    """Obtener instancia singleton del analizador"""
-    global _analyzer_instance
-    if _analyzer_instance is None:
-        _analyzer_instance = MedSigLIPAnalyzer()
-    return _analyzer_instance
-
-def cleanup_analyzer():
-    """Limpiar recursos del analizador"""
-    global _analyzer_instance
-    if _analyzer_instance is not None:
-        if hasattr(MedSigLIPAnalyzer, '_model'):
-            MedSigLIPAnalyzer._model = None
-        if hasattr(MedSigLIPAnalyzer, '_processor'):
-            MedSigLIPAnalyzer._processor = None
-        _analyzer_instance = None
+    """Compatibilidad hacia atrás"""
+    return get_image_analyzer()

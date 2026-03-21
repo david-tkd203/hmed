@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import axiosInstance from './api/axiosInstance';
 import { ArrowLeft, Gear, Moon, Sun, Globe, Heart, Lock, Bell, Eye, Shield, Save, X } from 'react-bootstrap-icons';
 import { useTranslation } from 'react-i18next';
 import './Profile.css';
@@ -44,8 +44,8 @@ export default function Profile({ user, onLogout, onBack, theme, setTheme }) {
 
     setLoading(true);
     try {
-      const response = await axios.put(
-        `${API_URL}/api/profile/update/`,
+      const response = await axiosInstance.put(
+        `/api/profile/update/`,
         {
           nombre_completo: profileData.nombre,
           cedula: profileData.cedula,
@@ -53,9 +53,6 @@ export default function Profile({ user, onLogout, onBack, theme, setTheme }) {
           direccion: profileData.direccion,
           ciudad: profileData.ciudad,
           email: profileData.email,
-        },
-        {
-          headers: { Authorization: `Bearer ${accessToken}` }
         }
       );
 
@@ -87,14 +84,11 @@ export default function Profile({ user, onLogout, onBack, theme, setTheme }) {
 
     setLoading(true);
     try {
-      const response = await axios.post(
-        `${API_URL}/api/profile/change-password/`,
+      const response = await axiosInstance.post(
+        `/api/profile/change-password/`,
         {
           current_password: passwords.currentPassword,
           new_password: passwords.newPassword,
-        },
-        {
-          headers: { Authorization: `Bearer ${accessToken}` }
         }
       );
 

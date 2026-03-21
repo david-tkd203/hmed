@@ -435,6 +435,14 @@ body {
 .upload-info li {
   font-size: 12px;
   color: var(--text-light);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-info li svg {
+  flex-shrink: 0;
+  color: var(--primary-color, #2563eb);
 }
 
 /* ==================== LISTS ==================== */

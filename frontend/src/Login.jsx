@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import axiosInstance from './api/axiosInstance';
 import { Heart, Eye, EyeSlash, ExclamationCircle, ArrowRepeat } from 'react-bootstrap-icons';
 import RateLimitError from './RateLimitError';
 import './Login.css';
@@ -60,7 +60,7 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${API_URL}/api/login/`, {
+      const response = await axiosInstance.post(`/api/login/`, {
         username: loginForm.username,
         password: loginForm.password,
       });
@@ -118,7 +118,7 @@ export default function Login({ onLoginSuccess }) {
     }
 
     try {
-      const response = await axios.post(`${API_URL}/api/register/`, registerForm);
+      const response = await axiosInstance.post(`/api/register/`, registerForm);
 
       // Guardar tokens JWT en localStorage
       localStorage.setItem('access_token', response.data.access);

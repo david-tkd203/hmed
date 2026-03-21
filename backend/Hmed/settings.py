@@ -12,21 +12,19 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-&v_a9c1xxc^s_0-d=^ha&71qni(=&i9#2clel66p-*v^_8!hr2'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'web', '*']
+# Load settings from environment variables
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me-in-production')
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,web').split(',')
 
 
 # Application definition
@@ -83,12 +81,12 @@ WSGI_APPLICATION = 'Hmed.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'hmed_db',
-        'USER': 'admin',
-        'PASSWORD': 'secret_pass',
-        'HOST': 'db',
-        'PORT': '5432',
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
+        'NAME': os.getenv('DB_NAME', 'hmed_db'),
+        'USER': os.getenv('DB_USER', 'admin'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'secret_pass'),
+        'HOST': os.getenv('DB_HOST', 'db'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -135,21 +133,10 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:5175',
-    'http://localhost:5176',
-    'http://localhost:5177',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:5174',
-    'http://127.0.0.1:5175',
-    'http://127.0.0.1:5176',
-    'http://127.0.0.1:5177',
-    'http://127.0.0.1:3000',
-    'http://frontend:5173',
-]
+CORS_ALLOWED_ORIGINS = os.getenv(
+    'CORS_ALLOWED_ORIGINS', 
+    'http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173'
+).split(',')
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
@@ -182,11 +169,11 @@ REST_FRAMEWORK = {
 
 # JWT Configuration
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=int(os.getenv('JWT_ACCESS_TOKEN_LIFETIME_HOURS', '1'))),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv('JWT_REFRESH_TOKEN_LIFETIME_DAYS', '7'))),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
-    'ALGORITHM': 'HS256',
+    'ALGORITHM': os.getenv('JWT_ALGORITHM', 'HS256'),
     'SIGNING_KEY': SECRET_KEY,
     'VERIFYING_KEY': None,
     'AUTH_HEADER_TYPES': ('Bearer',),
@@ -196,7 +183,12 @@ SIMPLE_JWT = {
 }
 
 # Rate Limiting
-RATELIMIT_ENABLE = True
+RATELIMIT_ENABLE = os.getenv('RATELIMIT_ENABLE', 'True') == 'True'
+
+# ===== MEDICAL AI MODELS (MedSigLIP + MedGemma) =====
+MEDSIGLIP_ENABLED = os.getenv('MEDSIGLIP_ENABLED', 'False') == 'True'
+MEDGEMMA_ENABLED = os.getenv('MEDGEMMA_ENABLED', 'False') == 'True'
+MODELS_DEVICE = os.getenv('MODELS_DEVICE', 'cpu')  # cpu or cuda
 
 # ============== SWAGGER/OPENAPI DOCUMENTATION ==============
 SPECTACULAR_SETTINGS = {
