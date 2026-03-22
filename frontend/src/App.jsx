@@ -7,7 +7,6 @@ import Onboarding from './Onboarding';
 import Profile from './Profile';
 import DocumentUpload from './DocumentUpload';
 import Medications from './Medications';
-import SystemTools from './components/SystemTools';
 import './App.css';
 
 function App() {
@@ -362,9 +361,6 @@ function App() {
             💊 Gestionar Medicamentos
           </button>
         </section>
-
-        {/* System Tools - Herramientas del Sistema */}
-        <SystemTools />
       </main>
 
       {/* Footer */}

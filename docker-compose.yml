@@ -100,6 +100,8 @@ services:
       - SONAR_JDBC_PASSWORD=${DB_PASSWORD:-secret_pass}
       - SONAR_ES_BOOTSTRAP_CHECKS_DISABLED=true
       - SONAR_Java_javaVersion=17
+      # Optimizaciones de memoria para Elasticsearch embebido
+      - SONAR_ES_BOOTSTRAP_MEMORY_LOCK=false
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_extensions:/opt/sonarqube/extensions
@@ -114,9 +116,9 @@ services:
       interval: 30s
       timeout: 15s
       retries: 10
-      start_period: 60s
+      start_period: 180s
     profiles:
-      - sonarqube  # Deshabilitado por defecto para no bloquear otros servicios
+      - sonarqube
 
 networks:
   hmed_network:
