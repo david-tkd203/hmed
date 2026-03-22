@@ -8,11 +8,6 @@ Write-Host " HMED - Analisis de Seguridad con SonarQube" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 
-$Success = "Green"
-$ErrorColor = "Red"
-$Info = "Cyan"
-$Warning = "Yellow"
-
 # ============================================================================
 # FUNCIONES AUXILIARES
 # ============================================================================
@@ -25,12 +20,12 @@ function Test-Docker {
     try {
         & docker ps 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "[OK] Docker esta corriendo" -ForegroundColor $Success
+            Write-Host "[OK] Docker esta corriendo" -ForegroundColor Green
             return $true
         }
     }
     catch {
-        Write-Host "[FAIL] Error con Docker: $_" -ForegroundColor $ErrorColor
+        Write-Host "[FAIL] Error con Docker: $_" -ForegroundColor Red
         return $false
     }
 }
@@ -42,7 +37,7 @@ function Get-DockerNetworkName {
             return $network
         }
         
-        Write-Host "[WARN] Red hmed_network no encontrada, buscando alternativas..." -ForegroundColor $Warning
+        Write-Host "[WARN] Red hmed_network no encontrada, buscando alternativas..." -ForegroundColor Yellow
         $networks = & docker network ls --format "{{.Name}}" | Select-String "hmed|historico"
         if ($networks) {
             return $networks -split "`n" | Select-Object -First 1
@@ -58,7 +53,7 @@ function Get-DockerNetworkName {
 }
 
 function Test-SonarQubeConnection {
-    Write-Host "[*] Verificando SonarQube..." -ForegroundColor $Info
+    Write-Host "[*] Verificando SonarQube..." -ForegroundColor Cyan
     
     $maxAttempts = 10
     $attempt = 0
@@ -67,26 +62,26 @@ function Test-SonarQubeConnection {
         try {
             $response = Invoke-WebRequest -Uri "http://localhost:9000" -UseBasicParsing -ErrorAction Stop -TimeoutSec 5
             if ($response.StatusCode -eq 200) {
-                Write-Host "[OK] SonarQube disponible" -ForegroundColor $Success
+                Write-Host "[OK] SonarQube disponible" -ForegroundColor Green
                 return $true
             }
         }
         catch {
             $attempt = $attempt + 1
             if ($attempt -lt $maxAttempts) {
-                Write-Host "[*] Esperando SonarQube... ($attempt/$maxAttempts)" -ForegroundColor $Warning
+                Write-Host "[*] Esperando SonarQube... ($attempt/$maxAttempts)" -ForegroundColor Yellow
                 Start-Sleep -Seconds 2
             }
         }
     }
     
-    Write-Host "[FAIL] No se puede conectar a SonarQube en http://localhost:9000" -ForegroundColor $ErrorColor
-    Write-Host "[INFO] Ejecuta: docker-compose up -d" -ForegroundColor $Info
+    Write-Host "[FAIL] No se puede conectar a SonarQube en http://localhost:9000" -ForegroundColor Red
+    Write-Host "[INFO] Ejecuta: docker-compose up -d" -ForegroundColor Cyan
     return $false
 }
 
 function Create-SonarProperties {
-    Write-Host "[*] Creando configuracion de SonarQube..." -ForegroundColor $Info
+    Write-Host "[*] Creando configuracion de SonarQube..." -ForegroundColor Cyan
     
     try {
         $propertiesFile = "sonar-project.properties"
@@ -108,11 +103,11 @@ sonar.host.url=http://sonarqube:9000
 "@
         
         Set-Content -Path $propertiesFile -Value $content -ErrorAction Stop
-        Write-Host "[OK] Configuracion creada" -ForegroundColor $Success
+        Write-Host "[OK] Configuracion creada" -ForegroundColor Green
         return $true
     }
     catch {
-        Write-Host "[FAIL] Error creando configuracion" -ForegroundColor $ErrorColor
+        Write-Host "[FAIL] Error creando configuracion" -ForegroundColor Red
         return $false
     }
 }
@@ -125,41 +120,45 @@ function Run-SonarAnalysisWithDocker {
     Write-Host ""
     
     try {
-        Write-Host "[*] Ejecutando sonar-scanner con Docker..." -ForegroundColor $Info
+        Write-Host "[*] Ejecutando sonar-scanner con Docker..." -ForegroundColor Cyan
         
         $networkName = Get-DockerNetworkName
         $currentDir = Get-Location
         
-        Write-Host "[INFO] Red Docker: $networkName" -ForegroundColor $Info
-        Write-Host "[INFO] Directorio: $currentDir" -ForegroundColor $Info
+        Write-Host "[INFO] Red Docker: $networkName" -ForegroundColor Cyan
+        Write-Host "[INFO] Directorio: $currentDir" -ForegroundColor Cyan
         Write-Host ""
         
-        & docker run --rm `
-            --network=$networkName `
-            -v "${currentDir}:/usr/src" `
-            sonarsource/sonar-scanner-cli:latest `
-            -Dsonar.projectKey=HMED `
-            -Dsonar.projectName="HMED - Sistema de Historico Clinico" `
-            -Dsonar.sources=/usr/src/backend/registros,/usr/src/frontend/src `
-            -Dsonar.host.url=http://sonarqube:9000 `
-            -Dsonar.login=admin `
-            -Dsonar.password=admin
+        $args = @(
+            "run", "--rm",
+            "--network=$networkName",
+            "-v", "${currentDir}:/usr/src",
+            "sonarsource/sonar-scanner-cli:latest",
+            "-Dsonar.projectKey=HMED",
+            "-Dsonar.projectName=HMED - Sistema de Historico Clinico",
+            "-Dsonar.sources=/usr/src/backend/registros,/usr/src/frontend/src",
+            "-Dsonar.host.url=http://sonarqube:9000",
+            "-Dsonar.login=admin",
+            "-Dsonar.password=20394117Tkd+"
+        )
+        
+        & docker $args
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
-            Write-Host "========================================" -ForegroundColor $Success
-            Write-Host " OK - Analisis Completado" -ForegroundColor $Success
-            Write-Host "========================================" -ForegroundColor $Success
+            Write-Host "========================================" -ForegroundColor Green
+            Write-Host " OK - Analisis Completado" -ForegroundColor Green
+            Write-Host "========================================" -ForegroundColor Green
             return $true
         }
         else {
-            Write-Host "[WARN] El analisis termino con advertencias o errores menores" -ForegroundColor $Warning
-            Write-Host "[INFO] Verifica los resultados en http://localhost:9000/dashboard?id=HMED" -ForegroundColor $Info
+            Write-Host "[WARN] El analisis termino con advertencias o errores menores" -ForegroundColor Yellow
+            Write-Host "[INFO] Verifica los resultados en http://localhost:9000/dashboard?id=HMED" -ForegroundColor Cyan
             return $true
         }
     }
     catch {
-        Write-Host "[FAIL] Error ejecutando sonar-scanner: $_" -ForegroundColor $ErrorColor
+        Write-Host "[FAIL] Error ejecutando sonar-scanner: $_" -ForegroundColor Red
         return $false
     }
 }
@@ -191,30 +190,30 @@ $success = Run-SonarAnalysisWithDocker
 
 if ($success) {
     Write-Host ""
-    Write-Host "[*] Abriendo resultados en navegador..." -ForegroundColor $Info
+    Write-Host "[*] Abriendo resultados en navegador..." -ForegroundColor Cyan
     Start-Sleep -Seconds 3
     
     try {
         Start-Process "http://localhost:9000/dashboard?id=HMED" -ErrorAction SilentlyContinue
     }
     catch {
-        Write-Host "[INFO] Abre manualmente: http://localhost:9000/dashboard?id=HMED" -ForegroundColor $Info
+        Write-Host "[INFO] Abre manualmente: http://localhost:9000/dashboard?id=HMED" -ForegroundColor Cyan
     }
     
     Write-Host ""
-    Write-Host "========================================" -ForegroundColor $Success
-    Write-Host " ANALISIS COMPLETADO EXITOSAMENTE" -ForegroundColor $Success
-    Write-Host "========================================" -ForegroundColor $Success
+    Write-Host "========================================" -ForegroundColor Green
+    Write-Host " ANALISIS COMPLETADO EXITOSAMENTE" -ForegroundColor Green
+    Write-Host "========================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "[INFO] Credenciales SonarQube:" -ForegroundColor $Info
-    Write-Host "  Usuario: admin" -ForegroundColor $Success
-    Write-Host "  Contrasena: admin" -ForegroundColor $Success
+    Write-Host "[INFO] Credenciales SonarQube:" -ForegroundColor Cyan
+    Write-Host "  Usuario: admin" -ForegroundColor Green
+    Write-Host "  Contrasena: admin" -ForegroundColor Green
 }
 else {
     Write-Host ""
-    Write-Host "========================================" -ForegroundColor $ErrorColor
-    Write-Host " ERROR EN EL ANALISIS" -ForegroundColor $ErrorColor
-    Write-Host "========================================" -ForegroundColor $ErrorColor
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host " ERROR EN EL ANALISIS" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
     Write-Host ""
     Write-Host "[DEBUG] Por favor verifica:" -ForegroundColor $Warning
     Write-Host "  1. Docker esta ejecutando" -ForegroundColor $Info
