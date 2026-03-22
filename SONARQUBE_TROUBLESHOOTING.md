@@ -49,29 +49,48 @@ docker-compose logs sonarqube | Select-Object -Last 20
 ---
 
 ### Error: No se puede descargar sonar-scanner
-**Síntoma**: `[FAIL] Error al descargar SonarScanner`
+**Síntoma**: `[FAIL] No se pudo descargar de ninguna fuente`
+
+**Causa**: El servidor puede rechazar las solicitudes de PowerShell por razones de seguridad
 
 **Soluciones**:
 
-**Opción 1: Reinstalar**
-```powershell
-# Elimina la instalación anterior
-Remove-Item C:\sonar-scanner -Recurse -Force -ErrorAction SilentlyContinue
-# Ejecuta el script nuevamente
-.\start-security-analysis.bat
+**Opción 1: Descargar manualmente (RECOMENDADO)**
+1. Ve a: https://www.sonarsource.com/products/sonarqube/downloads/
+2. Descarga version 4.8.0.3345 para Windows (x86_64)
+3. Extrae el ZIP en: `C:\sonar-scanner`
+4. Estructura esperada:
+   ```
+   C:\sonar-scanner\
+     ├── bin\
+     │   ├── sonar-scanner.bat
+     │   └── sonar-scanner
+     ├── lib\
+     └── conf\
+   ```
+5. Ejecuta nuevamente: `.\start-security-analysis.bat`
+
+**Opción 2: Usar Git Bash o curl (si está disponible)**
+```bash
+curl -L -o sonar-scanner.zip "https://github.com/SonarSource/sonar-scanner-cli/releases/download/4.8.0.3345/sonar-scanner-cli-4.8.0.3345-windows-x86_64.zip"
+Expand-Archive -Path sonar-scanner.zip -DestinationPath C:\sonar-scanner\
 ```
 
-**Opción 2: Descargar manualmente**
-1. Ve a: https://www.sonarsource.com/products/sonarqube/downloads/
-2. Descarga: sonar-scanner-cli-4.8.0.3345-windows-x86_64.zip
-3. Extrae en: C:\sonar-scanner
-4. Ejecuta nuevamente: `.\start-security-analysis.bat`
-
-**Opción 3: Verificar conexión de red**
-- Verifica que tienes acceso a internet
-- Prueba manualmente: 
+**Opción 3: Usar PowerShell con User-Agent
 ```powershell
-Invoke-WebRequest https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/ -UseBasicParsing
+$url = "https://github.com/SonarSource/sonar-scanner-cli/releases/download/4.8.0.3345/sonar-scanner-cli-4.8.0.3345-windows-x86_64.zip"
+$headers = @{"User-Agent" = "Mozilla/5.0"}
+Invoke-WebRequest -Uri $url -OutFile sonar-scanner.zip -Headers $headers
+Expand-Archive -Path sonar-scanner.zip -DestinationPath C:\sonar-scanner\
+```
+
+**Opción 4: Reinstalar completamente
+```powershell
+# Elimina la instalación
+Remove-Item C:\sonar-scanner -Recurse -Force -ErrorAction SilentlyContinue
+
+# Ejecuta el script nuevamente
+.\start-security-analysis.bat
 ```
 
 ---

@@ -46,23 +46,53 @@ function Install-SonarScanner {
     
     Write-Host "[*] Preparando SonarScanner..." -ForegroundColor $Info
     
-    $DownloadUrl = "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$Version-windows-x86_64.zip"
     $ZipPath = "$env:TEMP\sonar-scanner.zip"
     $ExtractPath = "$env:TEMP\sonar-scanner-extracted"
+    
+    $urls = @(
+        "https://github.com/SonarSource/sonar-scanner-cli/releases/download/$Version/sonar-scanner-cli-$Version-windows-x86_64.zip",
+        "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$Version-windows-x86_64.zip"
+    )
+    
+    $downloadSuccess = $false
+    
+    foreach ($DownloadUrl in $urls) {
+        try {
+            Write-Host "[*] Intentando descargar desde: $DownloadUrl" -ForegroundColor $Info
+            
+            Invoke-WebRequest `
+                -Uri $DownloadUrl `
+                -OutFile $ZipPath `
+                -ErrorAction Stop `
+                -UseBasicParsing `
+                -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            
+            $downloadSuccess = $true
+            break
+        }
+        catch {
+            Write-Host "[WARN] Error: $_" -ForegroundColor $Warning
+            continue
+        }
+    }
+    
+    if (-not $downloadSuccess) {
+        Write-Host "[FAIL] No se pudo descargar de ninguna fuente" -ForegroundColor $ErrorColor
+        Write-Host ""
+        Write-Host "[OPCION 1] Descargar manualmente:" -ForegroundColor $Info
+        Write-Host "  1. Abre: https://www.sonarsource.com/products/sonarqube/downloads/" -ForegroundColor $Info
+        Write-Host "  2. Descarga: sonar-scanner-...-windows-x86_64.zip" -ForegroundColor $Info
+        Write-Host "  3. Extrae en: C:\sonar-scanner" -ForegroundColor $Info
+        Write-Host "  4. Ejecuta nuevamente este script" -ForegroundColor $Info
+        Write-Host ""
+        Write-Host "[OPCION 2] Usar curl (si está disponible):" -ForegroundColor $Info
+        Write-Host "  curl -o sonar-scanner.zip https://github.com/SonarSource/sonar-scanner-cli/releases/download/$Version/sonar-scanner-cli-$Version-windows-x86_64.zip" -ForegroundColor $Info
+        return $false
+    }
     
     try {
         if (-not (Test-Path $Path)) {
             New-Item -ItemType Directory -Path $Path -Force | Out-Null
-        }
-        
-        Write-Host "[*] Descargando sonar-scanner..." -ForegroundColor $Info
-        try {
-            Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -ErrorAction Stop -UseBasicParsing
-        }
-        catch {
-            Write-Host "[WARN] Error descargando de URL principal, intentando URL alternativa..." -ForegroundColor $Warning
-            $DownloadUrl = "https://github.com/SonarSource/sonar-scanner-cli/releases/download/$Version/sonar-scanner-$Version-windows.zip"
-            Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -ErrorAction Stop -UseBasicParsing
         }
         
         Write-Host "[*] Extrayendo archivos..." -ForegroundColor $Info
@@ -87,7 +117,6 @@ function Install-SonarScanner {
     }
     catch {
         Write-Host "[FAIL] Error instalando SonarScanner: $_" -ForegroundColor $ErrorColor
-        Write-Host "[INFO] Descarga manual desde: https://www.sonarsource.com/products/sonarqube/downloads/" -ForegroundColor $Info
         return $false
     }
 }
