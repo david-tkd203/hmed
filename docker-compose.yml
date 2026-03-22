@@ -37,7 +37,7 @@ services:
 
   web:
     build: ./backend
-    command: bash -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    command: bash -c "python manage.py migrate && bash /app/entrypoint.sh"
     volumes:
       - ./backend:/app
     ports:
@@ -92,7 +92,8 @@ services:
     ports:
       - "9000:9000"
     environment:
-      - SONAR_JDBC_URL=jdbc:postgresql://${DB_HOST:-db}:${DB_PORT:-5432}/${DB_NAME:-hmed_db}
+      # SonarQube usa su propia base de datos separada de Django
+      - SONAR_JDBC_URL=jdbc:postgresql://${DB_HOST:-db}:${DB_PORT:-5432}/sonarqube
       - SONAR_JDBC_USERNAME=${DB_USER:-admin}
       - SONAR_JDBC_PASSWORD=${DB_PASSWORD:-secret_pass}
       - SONAR_ES_BOOTSTRAP_CHECKS_DISABLED=true
