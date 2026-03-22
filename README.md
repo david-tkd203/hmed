@@ -44,49 +44,58 @@
 
 ## 🏗️ Arquitectura del Sistema - Análisis de Documentos Médicos
 
-```mermaid
-graph TD
-    A[📱 Frontend React] -->|1. Upload Document| B[API: POST /api/documents/upload/]
-    B --> C{File Type}
-    C -->|PDF| D[PyPDF2 Extract Text]
-    C -->|Image| E[pytesseract OCR Extract]
-    
-    D --> F[Raw Text]
-    E --> F
-    
-    F --> G{Analyze Route}
-    G -->|Analyze w/ AI| H[POST /api/documents/id/analyze/]
-    H --> I[MedSigLIP Analysis]
-    I --> J["Embeddings 448-dim<br/>+ Confidence<br/>+ Metadata"]
-    
-    G -->|Extract Info| K[POST /api/documents/id/extract-findings/]
-    K --> L[extract_medical_findings]
-    L --> M{Pattern Match}
-    M -->|Document Type| N["5 Types:<br/>Receta, Laboratorio,<br/>Imagen, Oftalmologia,<br/>Alergia"]
-    M -->|Medications| O["15+ Common Drugs:<br/>Paracetamol, Atorvastatina,<br/>Metformina, etc"]
-    M -->|Findings| P["8 Finding Types:<br/>Presión Alta, Glucosa,<br/>Colesterol, Anemia, etc"]
-    M -->|Observations| Q["Clinical Notes:<br/>Recomendaciones,<br/>Indicaciones"]
-    
-    N --> R[Extracted JSON]
-    O --> R
-    P --> R
-    Q --> R
-    
-    J --> S[Modal Component]
-    R --> S
-    
-    S --> T["🗂️ Extraction Tab<br/>Medicamentos: 💊<br/>Hallazgos: 🔍<br/>Observaciones: 📝<br/>Texto: 📰"]
-    
-    T --> U["🌍 i18n Support<br/>ES - Español<br/>EN - English<br/>PT - Português"]
-    
-    style A fill:#e1f5ff
-    style J fill:#c8e6c9
-    style R fill:#fff9c4
-    style T fill:#f8bbd0
-    style U fill:#f0f4c3
+### Flujo de Análisis de Documentos
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                │
+│  1️⃣  CARGAR DOCUMENTO                                                          │
+│  ────────────────────────────────────────────────────────────────────────────  │
+│  📁 Usuario sube PDF o Imagen                                                  │
+│                                   ↓                                            │
+│  2️⃣  EXTRAER TEXTO                                                             │
+│  ────────────────────────────────────────────────────────────────────────────  │
+│  📄 PDF          → PyPDF2 (extrae texto)                                       │
+│  🖼️  Imagen       → pytesseract (OCR)                                          │
+│                                   ↓                                            │
+│  3️⃣  ANALIZAR DOCUMENTO                                                        │
+│  ────────────────────────────────────────────────────────────────────────────  │
+│  🔍 Identificar:                                                               │
+│     • Tipo: Receta | Laboratorio | Radiografía | Oftalmología | Alergia       │
+│     • Medicamentos: Paracetamol, Ibuprofeno, Amoxicilina, etc.                │
+│     • Hallazgos: Presión alta, Glucosa elevada, Colesterol, Anemia, etc.      │
+│     • Observaciones: Recomendaciones clínicas                                  │
+│                                   ↓                                            │
+│  4️⃣  GENERAR EMBEDDINGS (IA)                                                   │
+│  ────────────────────────────────────────────────────────────────────────────  │
+│  🤖 MedSigLIP → 448 dimensiones de embeddings                                  │
+│  📊 Confidence score + Metadata                                                │
+│                                   ↓                                            │
+│  5️⃣  MOSTRAR RESULTADOS EN UI                                                  │
+│  ────────────────────────────────────────────────────────────────────────────  │
+│  💊 Tab "Extracción":                                                          │
+│     ├─ Tipo de documento detectado                                             │
+│     ├─ Medicamentos encontrados    💊                                          │
+│     ├─ Hallazgos detectados        🔍                                          │
+│     ├─ Observaciones clínicas      📝                                          │
+│     └─ Texto extraído             📰                                           │
+│                                                                                │
+│  🌍 Soporte Multiidioma:                                                       │
+│     🇪🇸 Español | 🇬🇧 English | 🇧🇷 Português                                  │
+│                                                                                │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-> **Diagrama: Flujo completo del análisis de documentos médicos** - Desde la carga del archivo hasta la presentación de resultados en UI multiidioma
+### Componentes Clave
+
+| Componente | Responsabilidad | Tecnología |
+|-----------|-----------------|-----------|
+| **Backend** | Extracción de información | Python Django |
+| **PDF Extraction** | Obtener texto de PDFs | PyPDF2 |
+| **OCR** | Convertir imágenes a texto | pytesseract + Tesseract |
+| **Pattern Matching** | Identificar medicamentos y hallazgos | Regex + Pattern Lists |
+| **Frontend** | Mostrar resultados en UI interactiva | React + i18n |
+| **Database** | Almacenar documentos y análisis | PostgreSQL |
 
 ---
 
