@@ -1,5 +1,49 @@
 # 🎯 RESUMEN COMPLETO - Sistema de Análisis de Documentos Médicos
 
+## 🏗️ Arquitectura del Sistema
+
+```mermaid
+graph TD
+    A[📱 Frontend React] -->|1. Upload Document| B[API: POST /api/documents/upload/]
+    B --> C{File Type}
+    C -->|PDF| D[PyPDF2 Extract Text]
+    C -->|Image| E[pytesseract OCR Extract]
+    
+    D --> F[Raw Text]
+    E --> F
+    
+    F --> G{Analyze Route}
+    G -->|Analyze w/ AI| H[POST /api/documents/id/analyze/]
+    H --> I[MedSigLIP Analysis]
+    I --> J["Embeddings 448-dim<br/>+ Confidence<br/>+ Metadata"]
+    
+    G -->|Extract Info| K[POST /api/documents/id/extract-findings/]
+    K --> L[extract_medical_findings]
+    L --> M{Pattern Match}
+    M -->|Document Type| N["5 Types:<br/>Receta, Laboratorio,<br/>Imagen, Oftalmologia,<br/>Alergia"]
+    M -->|Medications| O["15+ Common Drugs:<br/>Paracetamol, Atorvastatina,<br/>Metformina, etc"]
+    M -->|Findings| P["8 Finding Types:<br/>Presión Alta, Glucosa,<br/>Colesterol, Anemia, etc"]
+    M -->|Observations| Q["Clinical Notes:<br/>Recomendaciones,<br/>Indicaciones"]
+    
+    N --> R[Extracted JSON]
+    O --> R
+    P --> R
+    Q --> R
+    
+    J --> S[Modal Component]
+    R --> S
+    
+    S --> T["🗂️ Extraction Tab<br/>Medicamentos: 💊<br/>Hallazgos: 🔍<br/>Observaciones: 📝<br/>Texto: 📰"]
+    
+    T --> U["🌍 i18n Support<br/>ES - Español<br/>EN - English<br/>PT - Português"]
+    
+    style A fill:#e1f5ff
+    style J fill:#c8e6c9
+    style R fill:#fff9c4
+    style T fill:#f8bbd0
+    style U fill:#f0f4c3
+```
+
 ## ✅ Lo Que Se Ha Completado
 
 ### 1. **Extracción de Información Médica** (145 líneas nuevo código)
