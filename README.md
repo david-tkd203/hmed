@@ -513,39 +513,66 @@ Retry-After: 3600
 
 ## 🔍 Auditoría de Código con SonarQB
 
-### Ejecutar análisis automático
+### ⚡ Inicio Rápido (RECOMENDADO - Windows)
+
+```powershell
+cd "c:\Users\david\OneDrive\Escritorio\historico clinico"
+.\start-security-analysis.bat
+```
+
+Este script automáticamente:
+1. ✅ Descarga sonar-scanner (si no está instalado)
+2. ✅ Verifica Java
+3. ✅ Verifica conexión a SonarQube
+4. ✅ Ejecuta el análisis completo
+5. ✅ Abre resultados en navegador
+
+### Pasos Previos (Primera vez)
+
+```powershell
+# 1. Iniciar SonarQube
+docker-compose up -d sonarqube db
+
+# 2. Esperar 2-3 minutos hasta que SonarQube esté listo
+# 3. Verificar: http://localhost:9000
+
+# 4. Ejecutar análisis
+.\start-security-analysis.bat
+```
+
+### Análisis Manual (Sin Script)
 
 ```bash
-# Opción 1: Script automatizado (RECOMENDADO)
-bash run-sonar-analysis.sh
-
-# Opción 2: Comando directo en PowerShell
-docker run --rm `
-  --network="historicoclinico_hmed_network" `
-  -v "$(pwd):/usr/src" `
-  sonarsource/sonar-scanner-cli:latest `
-  -Dsonar.projectKey=historico-clinico `
-  -Dsonar.sources=/usr/src/backend/registros,/usr/src/frontend/src `
-  -Dsonar.host.url=http://sonarqube:9000 `
+# Si prefieres ejecutar directo
+sonar-scanner `
+  -Dsonar.projectBaseDir=. `
+  -Dsonar.host.url=http://localhost:9000 `
   -Dsonar.login=admin `
   -Dsonar.password=admin
 ```
 
-### Ver resultados
+### Ver Resultados
 
-1. Accede a [http://localhost:9000](http://localhost:9000)
-2. Inicia sesión con `admin`/`admin`
-3. Haz clic en proyecto "Histórico Clínico"
+1. Accede a **http://localhost:9000**
+2. Inicia sesión: `admin` / `admin`
+3. Click en proyecto **"hmed-full"**
+4. Análisis disponibles:
 
-### Métricas analizadas
+   📊 **Overview** - Resumen general  
+   🐛 **Issues** - Bugs por severidad  
+   🔒 **Security** - Vulnerabilidades (SQL injection, XSS, etc.)  
+   ⚠️ **Code Smells** - Malas prácticas y complejidad  
+   📈 **Duplications** - Código duplicado  
+   🚀 **Deuda Técnica** - Horas estimadas para arreglarlo  
 
-✅ **Issues**: Bugs clasificados por severidad  
-✅ **Security**: Vulnerabilidades (SQL injection, XSS, etc.)  
-✅ **Code Smells**: Malas prácticas y complejidad  
-✅ **Duplications**: Porcentaje de código duplicado  
-✅ **Deuda Técnica**: Horas estimadas para arreglarlo  
+### Archivos de Configuración
 
-Ver [SONARQB_SETUP.md](SONARQB_SETUP.md) para más detalles.
+- **sonar-project.properties** - Configuración del análisis
+- **start-security-analysis.bat** - Script automático (Windows)
+- **install-and-analyze.ps1** - Instalador y ejecutor (PowerShell)
+- **run-sonar-analysis.bat/sh** - Scripts básicos
+
+Para más detalles: [SONARQUBE_GUIDE.md](SONARQUBE_GUIDE.md)
 
 ---
 
