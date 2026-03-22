@@ -20,7 +20,7 @@ export default function SystemTools() {
       password: 'admin',
       description: 'Auditoría de código & vulnerabilidades',
       icon: '🔍',
-      features: ['Análisis de código', 'Detecta vulnerabilidades', 'Métricas de calidad']
+      features: ['Análisis de código', 'Detecta vulnerabilidades', 'Métricas de calidad', 'SAST & DAST']
     },
     {
       id: 'api',
