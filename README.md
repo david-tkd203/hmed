@@ -243,7 +243,7 @@ La aplicación levanta **4 servicios** en Docker. Estos son los puertos utilizad
 | **Django API** | 8000 | http://localhost:8000 | N/A | N/A | API REST + Admin panel |
 | **Swagger/ReDoc** | 8000 | http://localhost:8000/api/docs/swagger/ | N/A | N/A | Documentación interactiva |
 | **React Frontend** | 5173 | http://localhost:5173 | N/A | N/A | Interfaz de usuario |
-| **SonarQB** | 9000 | http://localhost:9000 | admin | admin | Auditoría código & vulnerabilidades |
+| **SonarQB** | 9000 | http://localhost:9000 | admin* | (ver env vars) | Auditoría código & vulnerabilidades |
 
 ### Verificar que todos los servicios están corriendo
 
