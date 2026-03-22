@@ -16,7 +16,8 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+# Look for .env in the project root (parent of manage.py)
+load_dotenv(Path(__file__).resolve().parent.parent.parent / '.env')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -83,10 +84,14 @@ DATABASES = {
     'default': {
         'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
         'NAME': os.getenv('DB_NAME', 'hmed_db'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', os.getenv('DATABASE_PASSWORD', 'changeme')),
+        'USER': os.getenv('DB_USER', 'admin'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'secret_pass'),
         'HOST': os.getenv('DB_HOST', 'db'),
         'PORT': os.getenv('DB_PORT', '5432'),
+        # Connection pool (useful for production)
+        'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '600')),
+        # Atomic transactions
+        'ATOMIC_REQUESTS': False,
     }
 }
 
@@ -113,9 +118,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es-cl'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Santiago'
 
 USE_I18N = True
 
@@ -125,12 +130,21 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+] if os.path.exists(os.path.join(BASE_DIR, 'static')) else []
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# File Upload Configuration (for medical documents)
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('DATA_UPLOAD_MAX_MEMORY_SIZE', 52428800))  # 50MB default
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('FILE_UPLOAD_MAX_MEMORY_SIZE', 52428800))  # 50MB default
+FILE_UPLOAD_TEMP_DIR = os.getenv('FILE_UPLOAD_TEMP_DIR', None)
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = os.getenv(
@@ -154,6 +168,22 @@ CORS_EXPOSE_HEADERS = [
     'content-type',
     'x-csrftoken',
 ]
+
+# CSRF Configuration
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+
+# Security Configuration (conditional based on DEBUG)
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+else:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 
 # REST Framework
 REST_FRAMEWORK = {
@@ -184,6 +214,10 @@ SIMPLE_JWT = {
 
 # Rate Limiting
 RATELIMIT_ENABLE = os.getenv('RATELIMIT_ENABLE', 'True') == 'True'
+
+# ===== AI SERVICE CONFIGURATION =====
+AI_SERVICE_URL = os.getenv('AI_SERVICE_URL', 'http://localhost:8001')
+AI_SERVICE_PORT = os.getenv('AI_SERVICE_PORT', '8001')
 
 # ===== MEDICAL AI MODELS (MedSigLIP + MedGemma) =====
 MEDSIGLIP_ENABLED = os.getenv('MEDSIGLIP_ENABLED', 'False') == 'True'
