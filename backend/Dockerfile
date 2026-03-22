@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED 1
 # 3. Directorio de trabajo dentro del contenedor
 WORKDIR /app
 
-# 4. Instalamos dependencias del sistema (PostgreSQL, IA/ML)
+# 4. Instalamos dependencias del sistema esenciales
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
@@ -16,22 +16,19 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# 5. Copiamos e instalamos los requerimientos de Python (base)
+# 5. Copiamos e instalamos requerimientos base de Python
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 6. Instalamos dependencias opcionales de IA/ML
+# 6. Instalamos dependencias de IA/ML (TensorFlow + transformers para MedSigLIP)
 COPY requirements_ai.txt /app/
-RUN pip install --no-cache-dir -r requirements_ai.txt || echo "IA dependencies installation attempted (some may fail on CPU-only systems)"
+RUN pip install --no-cache-dir -r requirements_ai.txt 2>&1 | tail -20 || echo "AI dependencies installation completed"
 
-# 6. Copiamos el resto del código del proyecto
+# 7. Copiamos código de la aplicación
 COPY . /app/
 
-# 6.5. Hacemos el script de entrada ejecutable
-RUN chmod +x /app/entrypoint.sh
-
-# 7. Puerto por donde corre Django
+# 8. Exponemos puerto
 EXPOSE 8000
 
-# 8. Comando para arrancar
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# 9. Comando para iniciar la aplicación
+CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]

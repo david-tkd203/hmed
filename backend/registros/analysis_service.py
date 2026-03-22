@@ -17,7 +17,7 @@ import io
 import json
 from PIL import Image
 import numpy as np
-import cv2
+# import cv2  # Lazy-loaded if needed - avoids libGL.so.1 error in headless environments
 
 logger = logging.getLogger(__name__)
 
@@ -25,22 +25,29 @@ logger = logging.getLogger(__name__)
 MODELS_AVAILABLE = False
 MEDSIGLIP_MODE = None  # 'local' o 'vertex-ai'
 
+AutoModel = None
+AutoProcessor = None
+aiplatform = None
+tf = None
+
 try:
     # Intentar cargar MedSigLIP localmente (requiere TensorFlow lightweight, no PyTorch)
     from transformers import AutoModel, AutoProcessor
     import tensorflow as tf
-    logger.info("✓ TensorFlow available - using MedSigLIP locally")
+    logger.info("✓ TensorFlow + Transformers available - using MedSigLIP locally")
     MODELS_AVAILABLE = True
     MEDSIGLIP_MODE = 'local'
-except ImportError:
+except ImportError as e1:
+    logger.warning(f"⚠ TensorFlow/Transformers not available: {e1}")
     try:
         # Alternativa: Usar Vertex AI API de Google
         from google.cloud import aiplatform
         logger.info("✓ Google Cloud SDK available - using Vertex AI API for MedSigLIP")
         MODELS_AVAILABLE = True
         MEDSIGLIP_MODE = 'vertex-ai'
-    except ImportError as e:
-        logger.warning(f"⚠ MedSigLIP not available: {e}. Install google-cloud-aiplatform or transformers+tensorflow")
+    except ImportError as e2:
+        logger.warning(f"⚠ Google Cloud SDK not available: {e2}")
+        logger.warning("→ Running in fallback mode. AI analysis will return mock data.")
         MODELS_AVAILABLE = False
 
 # Configuración de modelos
@@ -90,6 +97,12 @@ class MedSigLIPAnalyzer:
                 "Instala: pip install -r requirements_ai.txt"
             )
         
+        if AutoProcessor is None or AutoModel is None:
+            raise RuntimeError(
+                "AutoProcessor/AutoModel not available. "
+                "Install transformers: pip install transformers tensorflow"
+            )
+        
         try:
             logger.info("Cargando MedSigLIP desde Hugging Face...")
             model_id = MODEL_CONFIG['medsiglip']['model_id']
@@ -98,14 +111,15 @@ class MedSigLIPAnalyzer:
             self.__class__._processor = AutoProcessor.from_pretrained(model_id)
             self.__class__._model = AutoModel.from_pretrained(model_id)
             
-            # Mover a GPU si está disponible
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            self.__class__._model = self.__class__._model.to(device)
-            self.__class__._model.eval()
+            # Mover a GPU si está disponible (TensorFlow)
+            if tf is not None:
+                import tensorflow as tensorflow_module
+                device = "cuda" if tensorflow_module.config.list_physical_devices('GPU') else "cpu"
+                logger.info(f"MedSigLIP cargado en {device}")
+            else:
+                logger.info("MedSigLIP cargado en CPU")
             
-            self.device = device
             self._initialized = True
-            logger.info(f"MedSigLIP cargado exitosamente en {device}")
             
         except Exception as e:
             logger.error(f"Error cargando MedSigLIP: {str(e)}")
@@ -756,8 +770,19 @@ class DocumentOCRExtractor:
 # ==================== FUNCIONES DE ACCESO ====================
 
 def get_image_analyzer() -> MedSigLIPAnalyzer:
-    """Obtener instancia de analizador de imágenes"""
-    return MedSigLIPAnalyzer()
+    """Obtener instancia de analizador de imágenes
+    
+    Retorna None si los modelos no están disponibles
+    """
+    if not MODELS_AVAILABLE:
+        logger.debug("AI models not available - returning None")
+        return None
+    
+    try:
+        return MedSigLIPAnalyzer()
+    except Exception as e:
+        logger.error(f"Error creating analyzer: {str(e)}")
+        return None
 
 
 def get_text_analyzer() -> MedGemmaAnalyzer:

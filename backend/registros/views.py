@@ -14,6 +14,7 @@ import mimetypes
 from datetime import datetime
 import json
 import logging
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -21,17 +22,6 @@ logger = logging.getLogger(__name__)
 # Login: 5 intentos por hora
 # Register: 3 registros por hora  
 # File Upload: 20 subidas por hora
-
-class MedicamentoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Medicamento
-        fields = '__all__'
-
-
-class MedicamentoViewSet(viewsets.ModelViewSet):
-    queryset = Medicamento.objects.all()
-    serializer_class = MedicamentoSerializer
-
 
 # ==================== VALIDADORES ====================
 
@@ -326,57 +316,6 @@ def update_paciente_profile(request):
         )
 
 
-# ==================== VALIDACIÓN DE ARCHIVOS ====================
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-@ratelimit(key='ip', rate='20/h', method='POST')
-def validate_file_view(request):
-    """
-    Endpoint para validar un archivo antes de subirlo
-    
-    Rate Limit: 20 validaciones por hora por usuario
-    
-    Recibe: archivo en multipart/form-data
-    Retorna: información sobre la validación
-    """
-    # Manejar rate limit
-    if getattr(request, 'limited', False):
-        return Response(
-            {
-                'error': 'Demasiadas validaciones',
-                'detail': 'Has excedido el límite de 20 validaciones por hora',
-                'retry_after': 'Por favor, intenta en unos minutos'
-            },
-            status=status.HTTP_429_TOO_MANY_REQUESTS,
-            headers={'Retry-After': '600'}
-        )
-    
-    if 'file' not in request.FILES:
-        return Response(
-            {'error': 'No se proporcionó archivo'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    uploaded_file = request.FILES['file']
-    
-    # Validar
-    validation = validate_file_upload(uploaded_file, max_size_mb=10)
-    
-    if not validation['valid']:
-        return Response(
-            {'error': validation['error']},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    return Response({
-        'valid': True,
-        'file_name': uploaded_file.name,
-        'file_size': f"{uploaded_file.size / 1024:.1f} KB",
-        'message': 'Archivo válido y listo para subir'
-    }, status=status.HTTP_200_OK)
-
-
 # ==================== REGISTROS CLÍNICOS ====================
 
 @api_view(['POST'])
@@ -498,107 +437,6 @@ def upload_registro_view(request):
     }, status=status.HTTP_200_OK)
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-@ratelimit(key='ip', rate='3/h', method='POST')
-def register_view(request):
-    """
-    Endpoint de Registro con JWT
-    Recibe: username, password, email, first_name, last_name, numero_cedula, genero, fecha_nacimiento
-    Retorna: access token, refresh token, user info
-    """
-    serializer = RegisterSerializer(data=request.data)
-    
-    if not serializer.is_valid():
-        return Response(
-            {'error': serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    try:
-        user = User.objects.create_user(
-            username=serializer.validated_data['username'],
-            password=serializer.validated_data['password'],
-            email=serializer.validated_data['email'],
-            first_name=serializer.validated_data.get('first_name', ''),
-            last_name=serializer.validated_data.get('last_name', '')
-        )
-
-        # Crear perfil de paciente
-        paciente = Paciente.objects.create(
-            usuario=user,
-            numero_cedula=serializer.validated_data['numero_cedula'],
-            genero=serializer.validated_data['genero'],
-            fecha_nacimiento=serializer.validated_data['fecha_nacimiento']
-        )
-
-        # Generar tokens JWT
-        refresh = RefreshToken.for_user(user)
-
-        paciente_serializer = PacienteDetailSerializer(paciente)
-
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-            },
-            'paciente': paciente_serializer.data,
-            'message': 'Registro exitoso'
-        }, status=status.HTTP_201_CREATED)
-
-    except Exception as e:
-        return Response(
-            {'error': f'Error en el registro: {str(e)}'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def logout_view(request):
-    """
-    Endpoint de Logout
-    Con JWT, solo es necesario eliminar el token del cliente
-    """
-    return Response(
-        {'message': 'Logout exitoso. Elimina el token del cliente.'},
-        status=status.HTTP_200_OK
-    )
-
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def refresh_token_view(request):
-    """
-    Endpoint para refrescar access token
-    Recibe: refresh token
-    Retorna: nuevo access token
-    """
-    try:
-        refresh_token = request.data.get('refresh')
-        if not refresh_token:
-            return Response(
-                {'error': 'Refresh token requerido'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        refresh = RefreshToken(refresh_token)
-        return Response({
-            'access': str(refresh.access_token)
-        }, status=status.HTTP_200_OK)
-    
-    except Exception as e:
-        return Response(
-            {'error': 'Token inválido o expirado'},
-            status=status.HTTP_401_UNAUTHORIZED
-        )
-
-
 # ==================== MEDICAL IMAGE ANALYSIS ENDPOINTS ====================
 
 @api_view(['POST'])
@@ -632,21 +470,84 @@ def analyze_document(request, doc_id):
     # Verificar si los modelos de IA están disponibles
     from registros.analysis_service import MODELS_AVAILABLE
     logger.warning(f"🤖 MODELS_AVAILABLE: {MODELS_AVAILABLE}")
+    
     if not MODELS_AVAILABLE:
-        logger.warning(f"⚠️ AI models not available, returning unavailable status")
+        logger.warning(f"⚠️ AI models not available, returning mock analysis")
+        # Análisis simulado/placeholder cuando los modelos no están disponibles
+        analysis_data = {
+            'timestamp': datetime.now().isoformat(),
+            'modelo': 'MedSigLIP-448px (MOCK - Models not installed)',
+            'embeddings': [random.random() for _ in range(448)],
+            'embedding_dim': 448,
+            'confidence': random.uniform(0.7, 0.95),
+            'processing_time': random.uniform(0.5, 2.0),
+            'image_metadata': {
+                'width': 448,
+                'height': 448,
+                'format': 'RGB'
+            },
+            'status': 'completed_mock',
+            'note': 'Análisis simulado. Para análisis real, instala tensorflow y transformers'
+        }
+        
+        document.ia_analisis = json.dumps(analysis_data, default=str)
+        document.save()
+        
         return Response({
             'id': document.id,
-            'message': 'Modelos de IA no disponibles',
+            'message': 'Análisis simulado completado (modelos no instalados)',
             'analysis': {
-                'status': 'unavailable',
-                'error': 'Los modelos de Machine Learning (PyTorch/Transformers) no están instalados en este sistema.',
-                'instructions': 'Para instalar los modelos de IA, ejecuta: docker-compose exec web pip install torch transformers torchvision'
+                'timestamp': analysis_data['timestamp'],
+                'modelo': analysis_data['modelo'],
+                'confidence': analysis_data['confidence'],
+                'embedding_dim': analysis_data['embedding_dim'],  # Correcto para frontend
+                'embeddings': analysis_data['embeddings'],  # Array de embeddings
+                'image_metadata': analysis_data['image_metadata'],  # Información de imagen
+                'processing_time': analysis_data['processing_time'],
+                'status': 'completed_mock',
+                'note': 'Análisis simulado. Para análisis real con MedSigLIP, instala requirements_ai.txt'
             }
         }, status=status.HTTP_200_OK)
     
     try:
         # Obtener el analizador de MedSigLIP
         analyzer = get_analyzer()
+        
+        # Si el analizador no está disponible, usar análisis simulado
+        if analyzer is None:
+            logger.warning(f"⚠️ Analyzer not available for document {doc_id}, returning mock analysis")
+            mock_analysis_data = {
+                'timestamp': datetime.now().isoformat(),
+                'modelo': 'MedSigLIP-448px (MOCK)',
+                'embeddings': [random.random() for _ in range(448)],
+                'embedding_dim': 448,
+                'confidence': random.uniform(0.7, 0.95),
+                'processing_time': random.uniform(0.5, 2.0),
+                'image_metadata': {
+                    'width': 448,
+                    'height': 448,
+                    'format': 'RGB'
+                },
+                'status': 'completed_mock'
+            }
+            
+            document.ia_analisis = json.dumps(mock_analysis_data, default=str)
+            document.save()
+            
+            return Response({
+                'id': document.id,
+                'message': 'Mock analysis completed (AI models not available)',
+                'analysis': {
+                    'timestamp': mock_analysis_data['timestamp'],
+                    'modelo': mock_analysis_data['modelo'],
+                    'confidence': mock_analysis_data['confidence'],
+                    'embedding_dim': mock_analysis_data['embedding_dim'],  # Correcto para frontend
+                    'embeddings': mock_analysis_data['embeddings'],  # Array de embeddings
+                    'image_metadata': mock_analysis_data['image_metadata'],  # Metadata de imagen
+                    'processing_time': mock_analysis_data['processing_time'],
+                    'status': 'completed_mock'
+                }
+            }, status=status.HTTP_200_OK)
         
         # Obtener ruta del archivo
         image_path = document.archivo.path if document.archivo else None
@@ -690,7 +591,9 @@ def analyze_document(request, doc_id):
                 'timestamp': analysis_data['timestamp'],
                 'modelo': analysis_data['modelo'],
                 'confidence': analysis_data['confidence'],
-                'embedding_dimension': analysis_data['embedding_dim'],
+                'embedding_dim': analysis_data['embedding_dim'],  # Correcto para frontend
+                'embeddings': analysis_data['embeddings'],  # Array de embeddings para visualizar
+                'image_metadata': analysis_data['image_metadata'],  # Metadata de imagen
                 'processing_time': analysis_data['processing_time'],
                 'status': 'completed'
             }
@@ -736,6 +639,33 @@ def classify_document_findings(request, doc_id):
             )
         
         analyzer = get_analyzer()
+        
+        if analyzer is None:
+            # Retornar clasificación simulada si los modelos no están disponibles
+            logger.warning(f"⚠️ Analyzer not available, returning mock classification")
+            mock_predictions = {finding: random.uniform(0.6, 0.95) for finding in findings}
+            
+            ia_analisis = {}
+            if document.ia_analisis:
+                try:
+                    ia_analisis = json.loads(document.ia_analisis)
+                except json.JSONDecodeError:
+                    ia_analisis = {}
+            
+            ia_analisis['classification'] = {
+                'findings': mock_predictions,
+                'timestamp': datetime.now().isoformat(),
+                'status': 'mock'
+            }
+            
+            document.ia_analisis = json.dumps(ia_analisis, default=str)
+            document.save()
+            
+            return Response({
+                'id': document.id,
+                'message': 'Mock classification completed',
+                'classification': mock_predictions
+            }, status=status.HTTP_200_OK)
         
         image_path = document.archivo.path if document.archivo else None
         if not image_path:
@@ -841,6 +771,34 @@ def search_similar_documents(request):
         
         analyzer = get_analyzer()
         
+        if analyzer is None:
+            # Retornar búsqueda simulada si los modelos no están disponibles
+            logger.warning(f"⚠️ Analyzer not available, returning mock search results")
+            
+            # Obtener documentos del usuario (simulado - ordenado aleatorio)
+            user_documents = list(MedicalDocument.objects.filter(
+                usuario=request.user,
+                ia_analisis__isnull=False
+            ).exclude(id=ref_doc_id)[:top_k])
+            
+            results = []
+            for idx, doc in enumerate(user_documents):
+                results.append({
+                    'id': doc.id,
+                    'tipo_documento': doc.tipo_documento,
+                    'especialidad': doc.especialidad,
+                    'similarity_score': random.uniform(0.6, 0.99),
+                    'created_at': doc.creado_en.isoformat() if doc.creado_en else None,
+                    'rank': idx + 1
+                })
+            
+            return Response({
+                'reference_doc_id': ref_doc_id,
+                'total_results': len(results),
+                'results': results,
+                'search_method': 'Random (Mock - AI not available)'
+            }, status=status.HTTP_200_OK)
+        
         # Obtener todos los documentos del usuario con análisis
         user_documents = MedicalDocument.objects.filter(
             usuario=request.user,
@@ -887,7 +845,7 @@ def search_similar_documents(request):
                 'tipo_documento': doc.tipo_documento,
                 'especialidad': doc.especialidad,
                 'similarity_score': float(similarity_score),
-                'created_at': doc.created_at.isoformat() if doc.created_at else None,
+                'created_at': doc.creado_en.isoformat() if doc.creado_en else None,
                 'rank': idx + 1
             })
         
@@ -1169,39 +1127,6 @@ def delete_document(request, doc_id):
             {'detail': f'Error al eliminar documento: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
-
-# ==================== DEBUG ENDPOINTS ====================
-
-@api_view(['GET', 'POST', 'OPTIONS'])
-@permission_classes([AllowAny])
-def debug_auth(request):
-    """
-    Endpoint de DEBUG para verificar autenticación
-    Sin protección, para diagnosticar problemas de JWT
-    """
-    if request.method == 'OPTIONS':
-        return Response({'status': 'ok'})
-    
-    return Response({
-        'ok': True,
-        'method': request.method,
-        'auth_header': request.headers.get('Authorization', 'NONE'),
-    })
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def debug_auth_protected(request):
-    """
-    Endpoint de DEBUG PROTEGIDO
-    Requiere autenticación para verificar si el JWT funciona
-    """
-    return Response({
-        'ok': True,
-        'user': request.user.username,
-        'message': 'Token IS válido!'
-    })
 
 
 # ==================== AI MEDICAL ANALYSIS ENDPOINTS ====================

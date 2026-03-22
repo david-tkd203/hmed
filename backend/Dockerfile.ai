@@ -1,0 +1,41 @@
+# Contenedor especializado para IA Medical
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+WORKDIR /app
+
+# Dependencias del sistema esenciales
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    libmagic1 \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar archivos de requisitos
+COPY requirements.txt /app/
+COPY requirements_ai.txt /app/
+
+# Instalar dependencias Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Instalar dependencias de IA (MedSigLIP, MedGemma, TensorFlow)
+RUN pip install --no-cache-dir -r requirements_ai.txt
+
+# Instalar FastAPI y Uvicorn para servir los endpoints de IA
+RUN pip install --no-cache-dir fastapi uvicorn python-multipart
+
+# Copiar código de IA
+COPY registros/ /app/registros/
+COPY ai_server.py /app/ai_server.py
+COPY Hmed/ /app/Hmed/
+
+# Hacer ejecutable el servidor
+RUN chmod +x /app/ai_server.py
+
+EXPOSE 8001
+
+CMD ["python", "/app/ai_server.py"]
