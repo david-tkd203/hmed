@@ -1,177 +1,90 @@
 # SonarQube - Análisis de Seguridad HMED
 
-## Inicio Rápido
+## ¡Simplicidad Máxima! 🚀
 
-### Opción 1: Con validación (recomendado)
-```powershell
-# Valida que todo está configurado correctamente
-.\validate-sonarqube.bat
-
-# Ejecuta el análisis
-.\start-security-analysis.bat
-```
-
-### Opción 2: Directo
+Solo ejecuta:
 ```powershell
 .\start-security-analysis.bat
 ```
 
-### Opción 3: Si hay problemas descargando (alternativa)
-```powershell
-# Descarga manualmente sonar-scanner
-.\download-sonar-scanner.bat
-
-# Luego ejecuta el análisis
-.\start-security-analysis.bat
-```
+**¡Eso es todo!** El script se encarga de todo.
 
 ---
 
-## ¿Qué hace el script?
+## ¿Qué hace?
 
-El script `start-security-analysis.bat` ejecuta automáticamente:
+1. ✅ Verifica que Docker está corriendo
+2. ✅ Verifica que SonarQube está disponible  
+3. ✅ Configura el proyecto automáticamente
+4. ✅ Ejecuta análisis completo usando Docker
+5. ✅ Abre resultados en tu navegador
 
-1. ✅ **Verifica Docker** - Asegura que Docker está corriendo
-2. ✅ **Verifica SonarQube** - Espera a que SonarQube esté listo (hasta 10 intentos)
-3. ✅ **Instala sonar-scanner** - Lo descarga e instala si falta
-4. ✅ **Configura el proyecto** - Crea sonar-project.properties automáticamente
-5. ✅ **Ejecuta análisis** - Analiza backend y frontend
-6. ✅ **Abre resultados** - Muestra el reporte en http://localhost:9000/dashboard?id=HMED
+**Tiempo**: 2-5 minutos
 
 ---
 
 ## Requisitos Previos
 
-### Docker Compose debe estar ejecutando
-```powershell
-# Inicia los servicios
-docker-compose up -d
+Solo **2 cosas**:
 
-# Verifica el estado
+### 1. Docker Compose debe estar ejecutando
+```powershell
+docker-compose up -d
+```
+
+Verifica:
+```powershell
 docker-compose ps
 ```
 
 Deberías ver:
 - `sonarqube` - UP
 - `db` - UP
-- `web` - UP
-- `frontend` - UP
-- `ai` - UP
 
-### Si SonarQube tarda en iniciar
-Espera 30-60 segundos. Puedes verificar:
+### 2. Espera a que SonarQube inicie (30-60 segundos)
+El primer inicio toma más tiempo. Log:
 ```powershell
-docker-compose logs sonarqube | Select-Object -Last 10
+docker-compose logs sonarqube | Select-Object -Last 5
 ```
 
 ---
 
-## Acceso a SonarQube
+## Acceso a Resultados
 
-**URL**: http://localhost:9000
+**URL**: http://localhost:9000/dashboard?id=HMED
 
 **Credenciales**:
 - Usuario: `admin`
 - Contraseña: `admin`
 
-**Dashboard del Proyecto**:
-- http://localhost:9000/dashboard?id=HMED
-
 ---
 
-## Si Hay Problemas
+## Si hay problemas
 
-### Ver errores detallados
+### SonarQube no responde
 ```powershell
-# Ejecuta validation para detectar problemas
-.\validate-sonarqube.bat
-
-# Ve logs de Docker
+# Espera más tiempo
 docker-compose logs sonarqube
-docker-compose logs db
+
+# O reinicia
+docker-compose restart sonarqube
 ```
 
-### Guía de Troubleshooting
-Lee el archivo `SONARQUBE_TROUBLESHOOTING.md` para soluciones a problemas comunes.
-
-### Reiniciar todo
+### Docker no está corriendo
 ```powershell
-# Detiene los contenedores
-docker-compose down -v
+# Inicia Docker Desktop (Windows)
+docker ps
 
-# Reinicia
+# Inicia los contenedores
 docker-compose up -d
-
-# Espera 30 segundos y ejecuta nuevamente
-.\start-security-analysis.bat
 ```
 
 ---
 
-## Configuración Personalizada
+## Documentación Detallada
 
-Si necesitas cambiar la configuración, edita `sonar-project.properties`:
-
-```properties
-sonar.projectKey=HMED
-sonar.projectName=HMED - Sistema de Historico Clinico
-sonar.sources=.
-sonar.inclusions=backend/**,frontend/**
-sonar.exclusions=**/*test*,**/node_modules/**,**/.git/**
-```
-
----
-
-## Scripts Incluidos
-
-| Script | Propósito |
-|--------|-----------|
-| `start-security-analysis.bat` | Ejecuta análisis completo de seguridad |
-| `validate-sonarqube.bat` | Valida que todo está configurado correctamente |
-| `sonar-project.properties` | Configuración del proyecto (generada automáticamente) |
-
----
-
-## Tokens de Acceso (Avanzado)
-
-Si prefieres usar token en lugar de contraseña:
-
-1. Abre http://localhost:9000/account/security
-2. Crea un nuevo token
-3. Úsalo en el script:
-   ```powershell
-   $token = "tu_token_aqui"
-   # El script lo utilizará automáticamente
-   ```
-
----
-
-## Qué se Analiza
-
-- **Backend**: Python/Django (`backend/` directory)
-- **Frontend**: JavaScript/React (`frontend/` directory)
-- **Exclusiones**: `node_modules`, `migrations`, tests, `.git`
-
----
-
-## Resultados
-
-Los resultados incluyen:
-
-- 🔐 **Vulnerabilidades de seguridad**
-- 🐛 **Bugs identificados**
-- 📊 **Code Smells**
-- 📈 **Métricas de cobertura**
-- 🎯 **Recomendaciones de mejora**
-
-Accesibles en: http://localhost:9000/dashboard?id=HMED
-
----
-
-## Soporte
-
-Para problemas:
-1. Revisa `SONARQUBE_TROUBLESHOOTING.md`
-2. Consulta los logs: `docker-compose logs`
-3. Valida config: `.\validate-sonarqube.bat`
+Otros archivos:
+- `SONARQUBE_QUICK_START.md` - Inicio rápido
+- `SONARQUBE_METHOD.md` - Detalles técnicos
+- `SONARQUBE_TROUBLESHOOTING.md` - Solución de problemas
 

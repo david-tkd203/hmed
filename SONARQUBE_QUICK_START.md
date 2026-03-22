@@ -1,118 +1,93 @@
-# SonarQube - Scripts Disponibles
+# SonarQube - Inicio Rápido
 
-## 🚀 Para Ejecutar Análisis de Seguridad
+## ¡Lo Más Simple Posible! 🎯
 
-### Script Principal (recomendado)
 ```powershell
 .\start-security-analysis.bat
 ```
 
-**Hace todo automáticamente**:
-- ✅ Verifica Docker
-- ✅ Verifica SonarQube
-- ✅ Instala sonar-scanner
-- ✅ Configura el proyecto
-- ✅ Ejecuta análisis
-- ✅ Abre resultados
-
-**Duración**: 2-5 minutos
+**Espera 2-5 minutos. ¡Listo!** Los resultados se abrirán en tu navegador.
 
 ---
 
-## 🔍 Para Validar Configuración
+## Prerequisitos (2 cosas)
 
+### 1. Docker Compose corriendo
 ```powershell
-.\validate-sonarqube.bat
+docker-compose up -d
 ```
 
-**Verifica**:
-- ✅ Docker está corriendo
-- ✅ SonarQube está accesible
-- ✅ sonar-scanner está instalado
-- ✅ Estructura del proyecto
-- ✅ Espacio en disco
-
-**Ejecuta esto ANTES si tienes dudas**
-
----
-
-## 📥 Para Descargar SonarScanner Manualmente
-
+### 2. Esperar a que SonarQube inicie
 ```powershell
-.\download-sonar-scanner.bat
+# Verifica en los logs
+docker-compose logs sonarqube | Select-Object -Last 5
 ```
 
-**Útil si**:
-- La descarga automática falla
-- Tienes problemas de conectividad
-- Prefieres controlarlo manualmente
+Si ves: `SonarQube is operational` ✅ - ¡Listo!
 
 ---
 
-## 🗂️ Archivos de Configuración
+## Acceder a Resultados
 
-| Archivo | Descripción |
-|---------|-------------|
-| `sonar-project.properties` | Configuración del proyecto (generada automáticamente) |
-| `SONARQUBE_README.md` | Instrucciones completas |
-| `SONARQUBE_TROUBLESHOOTING.md` | Solución de problemas |
+Una vez completado, se abre automáticamente:
 
----
+**http://localhost:9000/dashboard?id=HMED**
 
-## 📋 Flujo Recomendado
-
-### Primera Ejecución
-```powershell
-# 1. Valida que todo está bien
-.\validate-sonarqube.bat
-
-# 2. Si hay errores, consulta SONARQUBE_TROUBLESHOOTING.md
-# 3. Si todo OK, ejecuta análisis
-.\start-security-analysis.bat
-```
-
-### Ejecuciones Posteriores
-```powershell
-# Solo ejecuta
-.\start-security-analysis.bat
-```
-
-### Si Tienes Problemas
-```powershell
-# 1. Lee SONARQUBE_TROUBLESHOOTING.md
-# 2. Descarga manualmente sonar-scanner si es necesario
-.\download-sonar-scanner.bat
-# 3. Valida nuevamente
-.\validate-sonarqube.bat
-```
-
----
-
-## 🔧 Solución Rápida para Problemas Comunes
-
-| Problema | Solución |
-|----------|----------|
-| Docker no corre | Abre Docker Desktop |
-| SonarQube no responde | Espera 30-60 segundos o reinicia: `docker-compose restart sonarqube` |
-| Descarga falla | Ejecuta: `.\download-sonar-scanner.bat` |
-| Error 403 en descarga | Usa el script de descarga manual |
-| Análisis muy lento | Normal, toma 2-5 minutos la primera vez |
-
----
-
-## 📊 Acceder a los Resultados
-
-**URL**: http://localhost:9000/dashboard?id=HMED
-
-**Credenciales**:
+credenciales:
 - Usuario: `admin`
 - Contraseña: `admin`
 
 ---
 
-## 📚 Documentación Detallada
+## ¿Qué hace el script?
 
-- Instrucciones completas: `SONARQUBE_README.md`
+```
+✅ Verifica Docker
+✅ Verifica SonarQube
+✅ Configura proyecto
+✅ Analiza código
+✅ Abre resultados
+```
+
+No necesitas:
+- ❌ Instalar Java
+- ❌ Descargar sonar-scanner
+- ❌ Configurar PATH
+- ❌ Tokens manuales
+
+**Todo es automático**
+
+---
+
+## Si hay problemas
+
+| Problema | Solución |
+|----------|----------|
+| Docker no corre | `docker ps` - Abre Docker Desktop |
+| SonarQube no responde | `docker-compose restart sonarqube` |
+| Análisis lento | Es normal (2-5 minutos primera vez) |
+| Error de red | `docker-compose up -d` reinicia todo |
+
+---
+
+## Métodos Alternativos
+
+### Desde Bash
+```bash
+bash run-sonar-analysis.sh
+```
+
+### Validar antes de ejecutar
+```powershell
+.\validate-sonarqube.bat
+.\start-security-analysis.bat
+```
+
+---
+
+## Más Información
+
+- Detalles técnicos: `SONARQUBE_METHOD.md`
 - Troubleshooting: `SONARQUBE_TROUBLESHOOTING.md`
-- Configuración manual: `sonar-project.properties`
+- Documentación completa: `SONARQUBE_README.md`
 
