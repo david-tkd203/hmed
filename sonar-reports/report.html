@@ -1,0 +1,73 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte SonarQube - HMED</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .header { background: #2c3e50; color: white; padding: 20px; border-radius: 5px; }
+        .section { background: white; margin: 20px 0; padding: 20px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #34495e; color: white; }
+        .success { color: #27ae60; font-weight: bold; }
+        .error { color: #e74c3c; font-weight: bold; }
+        .warning { color: #f39c12; font-weight: bold; }
+        .metric-box { display: inline-block; background: #ecf0f1; padding: 15px; margin: 10px; border-radius: 5px; min-width: 200px; }
+        .metric-value { font-size: 24px; font-weight: bold; color: #2c3e50; }
+        .metric-label { font-size: 12px; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Reporte de Analisis - SonarQube</h1>
+        <p>Proyecto: <strong>HMED</strong></p>
+        <p>Fecha: 22-03-2026 05:04:54</p>
+    </div>
+    
+    <div class="section">
+        <h2>Resumen de Hallazgos</h2>
+        <div class="metric-box">
+            <div class="metric-label">Issues Totales</div>
+            <div class="metric-value">285</div>
+        </div>
+        <div class="metric-box">
+            <div class="metric-label">Hotspots de Seguridad</div>
+            <div class="metric-value">4</div>
+        </div>
+        <div class="metric-box">
+            <div class="metric-label">Metricas</div>
+            <div class="metric-value">10</div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>Archivos Descargados</h2>
+        <table>
+            <tr>
+                <th>Archivo</th>
+                <th>Tamano</th>
+                <th>Formato</th>
+            </tr><tr><td>duplicated-lines.json</td><td>2.37 KB</td><td>.json</td></tr>
+<tr><td>hotspots.csv</td><td>0.85 KB</td><td>.csv</td></tr>
+<tr><td>hotspots.json</td><td>3.75 KB</td><td>.json</td></tr>
+<tr><td>issues.csv</td><td>51.41 KB</td><td>.csv</td></tr>
+<tr><td>issues.json</td><td>614.98 KB</td><td>.json</td></tr>
+<tr><td>metrics.csv</td><td>0.29 KB</td><td>.csv</td></tr>
+<tr><td>metrics.json</td><td>2.79 KB</td><td>.json</td></tr>
+<tr><td>project-info.json</td><td>0.6 KB</td><td>.json</td></tr>
+<tr><td>quality-gate.json</td><td>1.89 KB</td><td>.json</td></tr>
+        </table>
+    </div>
+    
+    <div class="section">
+        <h2>Proximos Pasos</h2>
+        <ul>
+            <li>Revisar issues.csv para detalles de cada hallazgo</li>
+            <li>Analizar metrics.csv para tendencias</li>
+            <li>Revisar security hotspots en hotspots.csv</li>
+            <li>Consultar SonarQube: <a href="http://localhost:9000">http://localhost:9000</a></li>
+        </ul>
+    </div>
+</body>
+</html>

@@ -1,0 +1,106 @@
+﻿[
+    {
+        "key":  "68d38a6f-1b22-460f-afe8-8a1c9eb4f7cf",
+        "component":  "HMED:frontend/src/components/SystemTools.jsx",
+        "project":  "HMED",
+        "securityCategory":  "auth",
+        "vulnerabilityProbability":  "HIGH",
+        "status":  "TO_REVIEW",
+        "line":  20,
+        "message":  "Review this potentially hard-coded password.",
+        "author":  "dnanculeob@uft.edu",
+        "creationDate":  "2026-03-22T02:04:00+0000",
+        "updateDate":  "2026-03-22T04:54:22+0000",
+        "textRange":  {
+                          "startLine":  20,
+                          "endLine":  20,
+                          "startOffset":  16,
+                          "endOffset":  23
+                      },
+        "flows":  [
+
+                  ],
+        "ruleKey":  "javascript:S2068",
+        "messageFormattings":  [
+
+                               ]
+    },
+    {
+        "key":  "a1975944-c73f-4bba-a1c7-c2f50c192439",
+        "component":  "HMED:frontend/src/Medications.jsx",
+        "project":  "HMED",
+        "securityCategory":  "dos",
+        "vulnerabilityProbability":  "MEDIUM",
+        "status":  "TO_REVIEW",
+        "line":  25,
+        "message":  "Make sure the regex used here, which is vulnerable to super-linear runtime due to backtracking, cannot lead to denial of service.",
+        "author":  "dnanculeob@uft.edu",
+        "creationDate":  "2026-03-17T19:24:46+0000",
+        "updateDate":  "2026-03-22T04:54:22+0000",
+        "textRange":  {
+                          "startLine":  25,
+                          "endLine":  25,
+                          "startOffset":  29,
+                          "endOffset":  71
+                      },
+        "flows":  [
+
+                  ],
+        "ruleKey":  "javascript:S5852",
+        "messageFormattings":  [
+
+                               ]
+    },
+    {
+        "key":  "aa626f28-f02b-48bf-ba09-7a2eca34e80c",
+        "component":  "HMED:frontend/src/Medications.jsx",
+        "project":  "HMED",
+        "securityCategory":  "dos",
+        "vulnerabilityProbability":  "MEDIUM",
+        "status":  "TO_REVIEW",
+        "line":  31,
+        "message":  "Make sure the regex used here, which is vulnerable to super-linear runtime due to backtracking, cannot lead to denial of service.",
+        "author":  "dnanculeob@uft.edu",
+        "creationDate":  "2026-03-17T19:24:46+0000",
+        "updateDate":  "2026-03-22T04:54:22+0000",
+        "textRange":  {
+                          "startLine":  31,
+                          "endLine":  31,
+                          "startOffset":  24,
+                          "endOffset":  71
+                      },
+        "flows":  [
+
+                  ],
+        "ruleKey":  "javascript:S5852",
+        "messageFormattings":  [
+
+                               ]
+    },
+    {
+        "key":  "f446f872-87d1-427d-b44b-1c427093746d",
+        "component":  "HMED:backend/registros/views.py",
+        "project":  "HMED",
+        "securityCategory":  "weak-cryptography",
+        "vulnerabilityProbability":  "MEDIUM",
+        "status":  "TO_REVIEW",
+        "line":  452,
+        "message":  "Make sure that using this pseudorandom number generator is safe here.",
+        "author":  "dnanculeob@uft.edu",
+        "creationDate":  "2026-03-22T01:17:00+0000",
+        "updateDate":  "2026-03-22T04:54:22+0000",
+        "textRange":  {
+                          "startLine":  452,
+                          "endLine":  452,
+                          "startOffset":  23,
+                          "endOffset":  38
+                      },
+        "flows":  [
+
+                  ],
+        "ruleKey":  "python:S2245",
+        "messageFormattings":  [
+
+                               ]
+    }
+]

@@ -1,7 +1,8 @@
 # Script mejorado para descargar reportes de SonarQube via API
 # Uso: .\export-sonar-report.ps1
 
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 $ScriptStartTime = Get-Date
 $LogsDirectory = "logs"
 $ReportDir = "sonar-reports"
@@ -11,9 +12,17 @@ if (-not (Test-Path $ReportDir)) {
     New-Item -ItemType Directory -Path $ReportDir -Force | Out-Null
 }
 
-$SonarUrl = "http://localhost:9000"
-$SonarToken = "sqa_b0fc01f42ecb4a96c12c471ca38c00f00e48d892"
-$ProjectKey = "HMED"
+$SonarUrl = $env:SONAR_URL -or "http://localhost:9000"
+$SonarToken = $env:SONAR_TOKEN
+$SonarUser = $env:SONAR_USER -or "admin"
+$SonarPassword = $env:SONAR_PASSWORD
+$ProjectKey = $env:SONAR_PROJECT_KEY -or "HMED"
+
+# Validar credenciales
+if (-not $SonarToken -and -not $SonarPassword) {
+    Write-Host "[ERROR] Either SONAR_TOKEN or SONAR_PASSWORD environment variable must be set" -ForegroundColor Red
+    exit 1
+}
 
 # ============================================================================
 # FUNCIONES DE LOGGING
@@ -56,10 +65,16 @@ function Invoke-SonarWebRequest {
         [int]$MaxRetries = 3
     )
     
-    $auth = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("admin:20394117Tkd+"))
+    # Usar token si disponible, si no usar Basic Auth
     $headers = @{
-        "Authorization" = "Basic $auth"
         "Content-Type" = "application/json"
+    }
+    
+    if ($SonarToken) {
+        $headers["Authorization"] = "Bearer $SonarToken"
+    } elseif ($SonarPassword) {
+        $auth = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("$($SonarUser):$($SonarPassword)"))
+        $headers["Authorization"] = "Basic $auth"
     }
     
     for ($i = 1; $i -le $MaxRetries; $i++) {

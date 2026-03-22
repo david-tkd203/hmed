@@ -19,9 +19,9 @@ import random
 logger = logging.getLogger(__name__)
 
 # ==================== CONSTANTES DE MENSAJES ====================
-DOC_NOT_FOUND = DOC_NOT_FOUND
-DOC_NOT_FOUND_PERMISSION = DOC_NOT_FOUND_PERMISSION
-FILE_DOC_NOT_FOUND = FILE_DOC_NOT_FOUND
+DOC_NOT_FOUND = "Documento no encontrado"
+DOC_NOT_FOUND_PERMISSION = "No tienes permiso para acceder a este documento"
+FILE_DOC_NOT_FOUND = "El archivo del documento no existe"
 
 # ==================== RATE LIMITING CONFIGURACIÓN ====================
 # Login: 5 intentos por hora

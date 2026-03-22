@@ -1,0 +1,19 @@
+﻿{
+    "component":  {
+                      "key":  "HMED",
+                      "name":  "HMED",
+                      "qualifier":  "TRK",
+                      "analysisDate":  "2026-03-22T07:56:50+0000",
+                      "tags":  [
+
+                               ],
+                      "visibility":  "public",
+                      "leakPeriodDate":  "2026-03-22T04:54:22+0000",
+                      "version":  "1.0",
+                      "needIssueSync":  false,
+                      "isAiCodeFixEnabled":  false
+                  },
+    "ancestors":  [
+
+                  ]
+}

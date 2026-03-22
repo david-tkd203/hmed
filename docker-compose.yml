@@ -7,13 +7,18 @@ services:
       - postgres_data:/var/lib/postgresql/data/
       - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
-      - POSTGRES_DB=hmed_db
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=secret_pass
+      - POSTGRES_DB=${DB_NAME:-hmed_db}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
     ports:
       - "5432:5432"
     networks:
       - hmed_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   ai:
     build:
@@ -34,21 +39,35 @@ services:
 
   web:
     build: ./backend
-    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    command: bash -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
     volumes:
       - ./backend:/app
     ports:
       - "8000:8000"
     environment:
-      - DEBUG=1
-      - DATABASE_URL=postgres://admin:secret_pass@db:5432/hmed_db
+      - DEBUG=${DEBUG:-False}
+      - SECRET_KEY=${SECRET_KEY:-CHANGE_ME_IN_PRODUCTION}
+      - DB_ENGINE=${DB_ENGINE:-django.db.backends.postgresql}
+      - DB_NAME=${DB_NAME:-hmed_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
       - PYTHONUNBUFFERED=1
       - AI_SERVICE_URL=http://ai:8001
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,web,frontend}
     depends_on:
-      - db
-      - ai
+      db:
+        condition: service_healthy
+      ai:
+        condition: service_started
     networks:
       - hmed_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   frontend:
     build: ./frontend
@@ -59,27 +78,33 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
     depends_on:
       - web
     networks:
       - hmed_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   sonarqube:
     image: sonarqube:latest
     ports:
       - "9000:9000"
     environment:
-      - SONAR_JDBC_URL=jdbc:postgresql://db:5432/hmed_db
-      - SONAR_JDBC_USERNAME=admin
-      - SONAR_JDBC_PASSWORD=secret_pass
+      - SONAR_JDBC_URL=jdbc:postgresql://${DB_HOST:-db}:${DB_PORT:-5432}/${DB_NAME:-hmed_db}
+      - SONAR_JDBC_USERNAME=${DB_USER:-postgres}
+      - SONAR_JDBC_PASSWORD=${DB_PASSWORD:-changeme}
       - SONAR_ES_BOOTSTRAP_CHECKS_DISABLED=true
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_extensions:/opt/sonarqube/extensions
       - sonarqube_logs:/opt/sonarqube/logs
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - hmed_network
     healthcheck:

@@ -1,217 +1,286 @@
-# Script PowerShell para ejecutar analisis de SonarQube con Docker
+# Script PowerShell para analizar con SonarQube
 # Uso: .\install-and-analyze.ps1
 
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+$ScriptStartTime = Get-Date
+$LogsDirectory = "logs"
+$LogFile = Join-Path $LogsDirectory "analysis_$(Get-Date -Format 'yyyy-MM-dd_HHmmss').log"
 
-Write-Host "========================================" -ForegroundColor Green
-Write-Host " HMED - Analisis de Seguridad con SonarQube" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
-Write-Host ""
+if (-not (Test-Path $LogsDirectory)) {
+    New-Item -ItemType Directory -Path $LogsDirectory -Force | Out-Null
+}
+
+$SonarToken = $env:SONAR_TOKEN
+if (-not $SonarToken) {
+    Write-Log "ERROR" "SONAR_TOKEN environment variable not set. Please set it before running: `$env:SONAR_TOKEN = 'your-token'"
+    exit 1
+}
 
 # ============================================================================
-# VARIABLES DE CONFIGURACIÓN
+# FUNCIONES DE LOGGING
 # ============================================================================
 
-# Token de SonarQube generado por el proyecto
-$SonarToken = "sqa_b0fc01f42ecb4a96c12c471ca38c00f00e48d892"
+function Write-Log {
+    param([string]$Message, [string]$Level = "INFO")
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"
+    $logEntry = "[$timestamp] [$Level] $Message"
+    
+    Add-Content -Path $LogFile -Value $logEntry -ErrorAction SilentlyContinue
+    
+    $colors = @{
+        "SUCCESS" = "Green"
+        "ERROR" = "Red"
+        "WARNING" = "Yellow"
+        "DEBUG" = "Gray"
+        "INFO" = "Cyan"
+    }
+    
+    $color = $colors[$Level] 
+    if (-not $color) { $color = "White" }
+    
+    Write-Host "[$(Get-Date -Format 'HH:mm:ss')] [$Level] $Message" -ForegroundColor $color
+}
+
+function Write-Section {
+    param([string]$Title)
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Green
+    Write-Host " $Title" -ForegroundColor Green
+    Write-Host "========================================" -ForegroundColor Green
+    Write-Host ""
+}
 
 # ============================================================================
-# FUNCIONES AUXILIARES
+# FUNCIONES DE VERIFICACION
 # ============================================================================
 
 function Test-Docker {
+    Write-Log "Verificando Docker..." "INFO"
     try {
-        & docker ps 2>&1 | Out-Null
+        $dockerVersion = & docker --version 2>$null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "[OK] Docker esta corriendo" -ForegroundColor Green
+            Write-Log "Docker OK: $dockerVersion" "SUCCESS"
             return $true
         }
     }
     catch {
-        Write-Host "[FAIL] Error con Docker: $_" -ForegroundColor Red
+        Write-Log "Error con Docker: $_" "ERROR"
+    }
+    return $false
+}
+
+function Test-SystemRequirements {
+    Write-Log "Verificando requisitos del sistema..." "INFO"
+    
+    $pwVersion = $PSVersionTable.PSVersion.Major
+    if ($pwVersion -ge 5) {
+        Write-Log "PowerShell 5.0+ OK" "SUCCESS"
+        return $true
+    } else {
+        Write-Log "PowerShell 5.0+ NO ENCONTRADO" "ERROR"
         return $false
     }
 }
 
 function Get-DockerNetworkName {
     try {
-        $network = & docker network ls --filter name=hmed_network --quiet
+        Write-Log "Detectando red Docker..." "DEBUG"
+        $network = & docker network ls --filter name=hmed_network --quiet 2>$null
         if ($network) {
+            Write-Log "Red encontrada: hmed_network" "SUCCESS"
             return $network
         }
-        
-        Write-Host "[WARN] Red hmed_network no encontrada, buscando alternativas..." -ForegroundColor Yellow
-        $networks = & docker network ls --format "{{.Name}}" | Select-String "hmed|historico"
-        if ($networks) {
-            return $networks -split "`n" | Select-Object -First 1
-        }
-        
-        Write-Host "[INFO] Usando bridge por defecto" -ForegroundColor $Info
+        Write-Log "Usando bridge por defecto" "INFO"
         return "bridge"
     }
     catch {
-        Write-Host "[INFO] Usando bridge por defecto" -ForegroundColor $Info
+        Write-Log "Error detectando red: $_" "WARNING"
         return "bridge"
     }
 }
 
 function Test-SonarQubeConnection {
-    Write-Host "[*] Verificando SonarQube..." -ForegroundColor Cyan
+    Write-Log "Verificando conexion a SonarQube..." "INFO"
     
     $maxAttempts = 10
     $attempt = 0
     
     while ($attempt -lt $maxAttempts) {
         try {
-            $response = Invoke-WebRequest -Uri "http://localhost:9000" -UseBasicParsing -ErrorAction Stop -TimeoutSec 5
+            $response = Invoke-WebRequest -Uri "http://localhost:9000" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
             if ($response.StatusCode -eq 200) {
-                Write-Host "[OK] SonarQube disponible" -ForegroundColor Green
-                
-                # Verificar que las credenciales son correctas
-                Write-Host "[*] Validando credenciales..." -ForegroundColor Cyan
-                $auth = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("admin:20394117Tkd+"))
-                $headers = @{
-                    "Authorization" = "Basic $auth"
-                }
-                
-                try {
-                    $apiResponse = Invoke-WebRequest `
-                        -Uri "http://localhost:9000/api/user_tokens/search" `
-                        -Method Get `
-                        -Headers $headers `
-                        -UseBasicParsing `
-                        -TimeoutSec 5 `
-                        -ErrorAction Stop
-                    
-                    Write-Host "[OK] Credenciales válidas" -ForegroundColor Green
-                    return $true
-                }
-                catch {
-                    Write-Host "[WARN] Las credenciales podrían no ser correctas (continuando...)" -ForegroundColor Yellow
-                    return $true
-                }
+                Write-Log "SonarQube disponible (Status: $($response.StatusCode))" "SUCCESS"
+                return $true
             }
         }
         catch {
-            $attempt = $attempt + 1
+            $attempt++
             if ($attempt -lt $maxAttempts) {
-                Write-Host "[*] Esperando SonarQube... ($attempt/$maxAttempts)" -ForegroundColor Yellow
+                Write-Log "Esperando SonarQube... ($attempt/$maxAttempts)" "WARNING"
                 Start-Sleep -Seconds 2
             }
         }
     }
     
-    Write-Host "[FAIL] No se puede conectar a SonarQube en http://localhost:9000" -ForegroundColor Red
-    Write-Host "[INFO] Ejecuta: docker-compose up -d" -ForegroundColor Cyan
+    Write-Log "No se puede conectar a SonarQube en http://localhost:9000" "ERROR"
     return $false
 }
 
 function Create-SonarProperties {
-    Write-Host "[*] Creando configuracion de SonarQube..." -ForegroundColor Cyan
+    Write-Log "Creando configuracion de SonarQube..." "INFO"
     
     try {
         $propertiesFile = "sonar-project.properties"
-        
         $content = @"
 sonar.projectKey=HMED
 sonar.projectName=HMED - Sistema de Historico Clinico
 sonar.projectVersion=1.0
 sonar.sourceEncoding=UTF-8
-
 sonar.sources=.
 sonar.inclusions=backend/**,frontend/**
-sonar.exclusions=**/*test*,**/node_modules/**,**/.git/**,**/migrations/**
-
+sonar.exclusions=**/test*,**/node_modules/**,**/.git/**,**/migrations/**,**/dist/**
 sonar.javascript.lcov.reportPaths=coverage/lcov.info
 sonar.python.coverage.reportPath=coverage.xml
-
 sonar.host.url=http://sonarqube:9000
 "@
         
         Set-Content -Path $propertiesFile -Value $content -ErrorAction Stop
-        Write-Host "[OK] Configuracion creada" -ForegroundColor Green
+        Write-Log "Archivo sonar-project.properties creado" "SUCCESS"
         return $true
     }
     catch {
-        Write-Host "[FAIL] Error creando configuracion" -ForegroundColor Red
+        Write-Log "Error creando configuracion: $_" "ERROR"
         return $false
     }
 }
 
 function Get-SonarQubeToken {
-    Write-Host "[*] Obteniendo token de SonarQube..." -ForegroundColor Cyan
-    
     if ($SonarToken) {
-        Write-Host "[OK] Token disponible: $($SonarToken.Substring(0, 10))..." -ForegroundColor Green
+        Write-Log "Token disponible: $($SonarToken.Substring(0,10))..." "SUCCESS"
         return $SonarToken
     }
-    else {
-        Write-Host "[WARN] Token no configurado, usando credenciales directas" -ForegroundColor Yellow
-        return $null
+    Write-Log "Token no configurado, usando credenciales" "WARNING"
+    return $null
+}
+
+function Analyze-CodeStructure {
+    Write-Log "Analizando estructura del codigo..." "INFO"
+    
+    if (Test-Path "backend") {
+        $pythonFiles = @(Get-ChildItem -Path "backend" -Filter "*.py" -Recurse -ErrorAction SilentlyContinue).Count
+        Write-Log "Backend - Python files: $pythonFiles" "INFO"
+    }
+    
+    if (Test-Path "frontend") {
+        $jsFiles = @(Get-ChildItem -Path "frontend/src" -Filter "*.jsx" -Recurse -ErrorAction SilentlyContinue).Count
+        Write-Log "Frontend - JSX files: $jsFiles" "INFO"
     }
 }
 
-
 function Run-SonarAnalysisWithDocker {
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Green
-    Write-Host " Ejecutando Analisis de Seguridad" -ForegroundColor Green
-    Write-Host "========================================" -ForegroundColor Green
-    Write-Host ""
+    Write-Section "Ejecutando Analisis de Seguridad"
+    
+    $AnalysisStartTime = Get-Date
+    Write-Log "Inicio del analisis: $AnalysisStartTime" "INFO"
     
     try {
-        Write-Host "[*] Ejecutando sonar-scanner con Docker..." -ForegroundColor Cyan
-        
-        # Intentar obtener token
         $token = Get-SonarQubeToken
-        
         $networkName = Get-DockerNetworkName
         $currentDir = Get-Location
         
-        Write-Host "[INFO] Red Docker: $networkName" -ForegroundColor Cyan
-        Write-Host "[INFO] Directorio: $currentDir" -ForegroundColor Cyan
-        Write-Host ""
+        Write-Log "Red Docker: $networkName" "INFO"
+        Write-Log "Directorio: $currentDir" "INFO"
         
-        # Preparar argumentos
         $args = @(
             "run", "--rm",
             "--network=$networkName",
             "-v", "${currentDir}:/usr/src",
             "sonarsource/sonar-scanner-cli:latest",
             "-Dsonar.projectKey=HMED",
-            "-Dsonar.projectName=HMED - Sistema de Historico Clinico",
+            "-Dsonar.projectName=HMED",
             "-Dsonar.sources=/usr/src/backend/registros,/usr/src/frontend/src",
             "-Dsonar.host.url=http://sonarqube:9000"
         )
         
-        # Si se generó token, usarlo; si no, usar credenciales
         if ($token) {
-            Write-Host "[INFO] Usando token para autenticación" -ForegroundColor Cyan
+            Write-Log "Usando token para autenticacion" "INFO"
             $args += "-Dsonar.login=$token"
-        }
-        else {
-            Write-Host "[INFO] Usando credenciales (usuario/contraseña)" -ForegroundColor Cyan
+        } else {
+            Write-Log "Usando credenciales (admin)" "INFO"
             $args += "-Dsonar.login=admin"
             $args += "-Dsonar.password=20394117Tkd+"
         }
         
-        & docker $args
+        Write-Log "Ejecutando docker..." "INFO"
+        & docker $args 2>&1 | Tee-Object -FilePath $LogFile -Append
+        
+        $AnalysisEndTime = Get-Date
+        $Duration = ($AnalysisEndTime - $AnalysisStartTime).TotalSeconds
         
         if ($LASTEXITCODE -eq 0) {
-            Write-Host ""
-            Write-Host "========================================" -ForegroundColor Green
-            Write-Host " OK - Analisis Completado" -ForegroundColor Green
-            Write-Host "========================================" -ForegroundColor Green
+            Write-Log "Analisis completado exitosamente (${Duration}s)" "SUCCESS"
+            $AnalysisMetrics["Status"] = "SUCCESS"
+            $AnalysisMetrics["Duration"] = $Duration
             return $true
-        }
-        else {
-            Write-Host "[WARN] El analisis termino con advertencias o errores menores" -ForegroundColor Yellow
-            Write-Host "[INFO] Verifica los resultados en http://localhost:9000/dashboard?id=HMED" -ForegroundColor Cyan
+        } else {
+            Write-Log "El analisis termino con advertencias (${Duration}s)" "WARNING"
+            Write-Log "Verifica los resultados en http://localhost:9000/dashboard?id=HMED" "INFO"
+            $AnalysisMetrics["Status"] = "COMPLETED_WITH_WARNINGS"
+            $AnalysisMetrics["Duration"] = $Duration
             return $true
         }
     }
     catch {
-        Write-Host "[FAIL] Error ejecutando sonar-scanner: $_" -ForegroundColor Red
+        Write-Log "Error ejecutando analisis: $_" "ERROR"
+        $AnalysisMetrics["Status"] = "FAILED"
+        return $false
+    }
+}
+
+function Get-SonarQubeMetrics {
+    Write-Log "Recuperando metricas de SonarQube..." "INFO"
+    
+    try {
+        $auth = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("admin:20394117Tkd+"))
+        $headers = @{
+            "Authorization" = "Basic $auth"
+        }
+        
+        $projectResponse = Invoke-WebRequest `
+            -Uri "http://localhost:9000/api/projects/search?q=HMED" `
+            -Method Get `
+            -Headers $headers `
+            -UseBasicParsing `
+            -ErrorAction Stop
+        
+        $projects = $projectResponse.Content | ConvertFrom-Json
+        
+        if ($projects.components -and $projects.components.Count -gt 0) {
+            $project = $projects.components[0]
+            Write-Log "Proyecto encontrado: $($project.name)" "SUCCESS"
+            
+            $qgResponse = Invoke-WebRequest `
+                -Uri "http://localhost:9000/api/qualitygates/project_status?projectKey=$($project.key)" `
+                -Method Get `
+                -Headers $headers `
+                -UseBasicParsing `
+                -ErrorAction Stop
+            
+            $qg = $qgResponse.Content | ConvertFrom-Json
+            $qgStatus = $qg.projectStatus.status
+            
+            Write-Log "Quality Gate Status: $qgStatus" "INFO"
+            $AnalysisMetrics["QualityGate"] = $qgStatus
+            return $true
+        } else {
+            Write-Log "Proyecto HMED no encontrado aun (procesando...)" "WARNING"
+            return $false
+        }
+    }
+    catch {
+        Write-Log "Error recuperando metricas: $_" "WARNING"
         return $false
     }
 }
@@ -220,59 +289,75 @@ function Run-SonarAnalysisWithDocker {
 # MAIN
 # ============================================================================
 
-Write-Host "[PASO 1/4] Verificando Docker..." -ForegroundColor Green
+Write-Section "HMED - Sistema de Analisis de Seguridad con SonarQube"
+Write-Log "Script iniciado por: $env:USERNAME" "INFO"
+Write-Log "Archivo de log: $LogFile" "INFO"
+Write-Log "Directorio: $(Get-Location)" "INFO"
+
+Write-Log "========== PASO 1/5: Verificando Requisitos ===========" "INFO"
+if (-not (Test-SystemRequirements)) {
+    Write-Log "ERROR: No se cumplen los requisitos minimos" "ERROR"
+    Read-Host "Presiona Enter para finalizar"
+    exit 1
+}
+
+Write-Log "========== PASO 2/5: Verificando Docker ===========" "INFO"
 if (-not (Test-Docker)) {
-    Read-Host "`nPresiona Enter para continuar"
+    Write-Log "ERROR: Docker no esta disponible" "ERROR"
+    Read-Host "Presiona Enter para finalizar"
     exit 1
 }
 
-Write-Host ""
-Write-Host "[PASO 2/4] Verificando SonarQube..." -ForegroundColor Green
+Write-Log "========== PASO 3/5: Verificando SonarQube ===========" "INFO"
 if (-not (Test-SonarQubeConnection)) {
-    Read-Host "`nPresiona Enter para continuar"
+    Write-Log "ERROR: No se puede conectar a SonarQube" "ERROR"
+    Read-Host "Presiona Enter para finalizar"
     exit 1
 }
 
-Write-Host ""
-Write-Host "[PASO 3/4] Configurando proyecto..." -ForegroundColor Green
+Write-Log "========== PASO 4/5: Analizando Estructura ===========" "INFO"
+Analyze-CodeStructure
+
+Write-Log "========== PASO 5/5: Ejecutando Analisis ===========" "INFO"
 Create-SonarProperties | Out-Null
 
-Write-Host ""
-Write-Host "[PASO 4/4] Ejecutando analisis..." -ForegroundColor Green
 $success = Run-SonarAnalysisWithDocker
 
 if ($success) {
-    Write-Host ""
-    Write-Host "[*] Abriendo resultados en navegador..." -ForegroundColor Cyan
-    Start-Sleep -Seconds 3
+    Write-Section "ANALISIS COMPLETADO EXITOSAMENTE"
     
-    try {
+    Write-Log "Esperando a SonarQube para procesar resultados..." "INFO"
+    Start-Sleep -Seconds 5
+    
+    Get-SonarQubeMetrics | Out-Null
+    
+    Write-Log "Abriendo resultados en navegador..." "INFO"
+    Try {
         Start-Process "http://localhost:9000/dashboard?id=HMED" -ErrorAction SilentlyContinue
     }
-    catch {
-        Write-Host "[INFO] Abre manualmente: http://localhost:9000/dashboard?id=HMED" -ForegroundColor Cyan
+    Catch {
+        Write-Log "Abre manualmente: http://localhost:9000/dashboard?id=HMED" "INFO"
     }
     
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Green
-    Write-Host " ANALISIS COMPLETADO EXITOSAMENTE" -ForegroundColor Green
-    Write-Host "========================================" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "[INFO] Credenciales SonarQube:" -ForegroundColor Cyan
-    Write-Host "  Dashboard: http://localhost:9000" -ForegroundColor Green
-    Write-Host "  Usuario: admin" -ForegroundColor Green
-    Write-Host "  Contraseña: 20394117Tkd+" -ForegroundColor Green
-}
-else {
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Red
-    Write-Host " ERROR EN EL ANALISIS" -ForegroundColor Red
-    Write-Host "========================================" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "[DEBUG] Por favor verifica:" -ForegroundColor Yellow
-    Write-Host "  1. Docker esta ejecutando" -ForegroundColor Cyan
-    Write-Host "  2. SonarQube en http://localhost:9000 esta disponible" -ForegroundColor Cyan
-    Write-Host "  3. La red Docker es accesible" -ForegroundColor Cyan
+    Write-Section "INFORMACION DE ACCESO A SONARQUBE"
+    Write-Log "Dashboard: http://localhost:9000" "INFO"
+    Write-Log "Usuario: admin" "INFO"
+    Write-Log "Contrasena: 20394117Tkd+" "INFO"
+    Write-Log "Log guardado en: $LogFile" "SUCCESS"
+} else {
+    Write-Section "ERROR EN EL ANALISIS"
+    Write-Log "Verifica:" "WARNING"
+    Write-Log "  1. Docker ejecutando: docker ps" "INFO"
+    Write-Log "  2. SonarQube en http://localhost:9000" "INFO"
+    Write-Log "  3. Red Docker: docker network ls" "INFO"
+    Write-Log "  4. Log: $LogFile" "INFO"
 }
 
-Read-Host "`nPresiona Enter para finalizar"
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host " FIN DEL SCRIPT" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+
+Add-Content -Path $LogFile -Value "Script ended at: $(Get-Date)" -ErrorAction SilentlyContinue
+
+Read-Host "Presiona Enter para finalizar"

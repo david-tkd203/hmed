@@ -32,4 +32,4 @@ COPY . /app/
 EXPOSE 8000
 
 # 9. Comando para iniciar la aplicación
-CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+CMD ["bash", "-c", "chmod +x /app/entrypoint.sh && /app/entrypoint.sh"]
