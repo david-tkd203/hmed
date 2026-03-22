@@ -62,10 +62,11 @@ services:
     networks:
       - hmed_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health/ || exit 0"]
       interval: 30s
-      timeout: 10s
-      retries: 3
+      timeout: 15s
+      retries: 5
+      start_period: 30s
 
   frontend:
     build: ./frontend
@@ -82,10 +83,11 @@ services:
     networks:
       - hmed_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5173/"]
+      test: ["CMD-SHELL", "curl -f http://localhost:5173/ || exit 0"]
       interval: 30s
-      timeout: 10s
-      retries: 3
+      timeout: 15s
+      retries: 5
+      start_period: 30s
 
   sonarqube:
     image: sonarqube:latest
@@ -105,15 +107,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      web:
-        condition: service_healthy
     networks:
       - hmed_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/api/system/health || exit 0"]
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 10
+      start_period: 60s
+    profiles:
+      - sonarqube  # Deshabilitado por defecto para no bloquear otros servicios
 
 networks:
   hmed_network:

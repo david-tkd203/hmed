@@ -1,23 +1,24 @@
 -- ============================================
--- INICIALIZACIÓN PARA PROYECTO HMED
+-- INICIALIZACIÓN BASES DE DATOS - HISTORICO CLINICO  
 -- ============================================
+-- Este script se ejecuta una sola vez durante la inicialización de PostgreSQL
 
--- 1. Crear la base de datos para SonarQube
--- La base de datos 'hmed_db' ya fue creada por las variables de entorno de Docker
+-- 1. Crear base de datos para SonarQube
+-- (hmed_db ya se crea automáticamente via POSTGRES_DB env var)
 CREATE DATABASE sonarqube;
 
--- 2. Asignar al usuario 'admin' como dueño de ambas bases de datos
--- Esto otorga permisos totales de forma automática y recursiva
+-- 2. Asignar OWNER a las bases de datos al usuario 'admin'
+-- Esto permite que Django y SonarQube tengan control total
 ALTER DATABASE hmed_db OWNER TO admin;
 ALTER DATABASE sonarqube OWNER TO admin;
 
--- 3. Asegurar privilegios adicionales (Opcional pero recomendado)
-GRANT ALL PRIVILEGES ON DATABASE hmed_db TO admin;
-GRANT ALL PRIVILEGES ON DATABASE sonarqube TO admin;
+-- 3. Dar permisos de SUPERUSER a 'admin'
+-- SonarQube requiere algunos permisos elevados
+ALTER USER admin WITH SUPERUSER;
 
 -- ============================================
--- NOTA TÉCNICA:
--- No es necesario usar \c (connect) ni GRANT en esquemas aquí.
--- Al ser OWNER, el usuario admin tendrá control total cuando
--- Django y SonarQube inicien sus propias migraciones.
+-- FIN DE INICIALIZACIÓN
 -- ============================================
+-- Django: conectará a 'hmed_db' con usuario 'admin'
+-- SonarQube: conectará a 'sonarqube' con usuario 'admin'
+-- Ambos tienen control total sobre sus respectivas BD's
