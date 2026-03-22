@@ -9,8 +9,11 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 
 # ============================================================================
-# FUNCIONES AUXILIARES
+# VARIABLES DE CONFIGURACIÓN
 # ============================================================================
+
+# Token de SonarQube generado por el proyecto
+$SonarToken = "sqa_b0fc01f42ecb4a96c12c471ca38c00f00e48d892"
 
 # ============================================================================
 # FUNCIONES AUXILIARES
@@ -63,7 +66,30 @@ function Test-SonarQubeConnection {
             $response = Invoke-WebRequest -Uri "http://localhost:9000" -UseBasicParsing -ErrorAction Stop -TimeoutSec 5
             if ($response.StatusCode -eq 200) {
                 Write-Host "[OK] SonarQube disponible" -ForegroundColor Green
-                return $true
+                
+                # Verificar que las credenciales son correctas
+                Write-Host "[*] Validando credenciales..." -ForegroundColor Cyan
+                $auth = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("admin:20394117Tkd+"))
+                $headers = @{
+                    "Authorization" = "Basic $auth"
+                }
+                
+                try {
+                    $apiResponse = Invoke-WebRequest `
+                        -Uri "http://localhost:9000/api/user_tokens/search" `
+                        -Method Get `
+                        -Headers $headers `
+                        -UseBasicParsing `
+                        -TimeoutSec 5 `
+                        -ErrorAction Stop
+                    
+                    Write-Host "[OK] Credenciales válidas" -ForegroundColor Green
+                    return $true
+                }
+                catch {
+                    Write-Host "[WARN] Las credenciales podrían no ser correctas (continuando...)" -ForegroundColor Yellow
+                    return $true
+                }
             }
         }
         catch {
@@ -113,42 +139,18 @@ sonar.host.url=http://sonarqube:9000
 }
 
 function Get-SonarQubeToken {
-    Write-Host "[*] Intentando generar token de SonarQube..." -ForegroundColor Cyan
+    Write-Host "[*] Obteniendo token de SonarQube..." -ForegroundColor Cyan
     
-    try {
-        # Codificar credenciales por defecto: admin:admin
-        $auth = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("admin:admin"))
-        
-        $headers = @{
-            "Authorization" = "Basic $auth"
-            "Content-Type" = "application/x-www-form-urlencoded"
-        }
-        
-        # Generar token
-        $response = Invoke-WebRequest `
-            -Uri "http://localhost:9000/api/user_tokens/generate" `
-            -Method Post `
-            -Headers $headers `
-            -Body "name=HMED-Scanner-$(Get-Date -Format 'yyyyMMdd-HHmmss')" `
-            -UseBasicParsing `
-            -TimeoutSec 10 `
-            -ErrorAction Stop
-        
-        $token = ($response.Content | ConvertFrom-Json).token
-        if ($token) {
-            Write-Host "[OK] Token generado exitosamente" -ForegroundColor Green
-            return $token
-        }
-        else {
-            Write-Host "[WARN] Token vacío, usando credenciales directas" -ForegroundColor Yellow
-            return $null
-        }
+    if ($SonarToken) {
+        Write-Host "[OK] Token disponible: $($SonarToken.Substring(0, 10))..." -ForegroundColor Green
+        return $SonarToken
     }
-    catch {
-        Write-Host "[WARN] No se pudo generar token, usando credenciales directas" -ForegroundColor Yellow
+    else {
+        Write-Host "[WARN] Token no configurado, usando credenciales directas" -ForegroundColor Yellow
         return $null
     }
 }
+
 
 function Run-SonarAnalysisWithDocker {
     Write-Host ""
@@ -190,7 +192,7 @@ function Run-SonarAnalysisWithDocker {
         else {
             Write-Host "[INFO] Usando credenciales (usuario/contraseña)" -ForegroundColor Cyan
             $args += "-Dsonar.login=admin"
-            $args += "-Dsonar.password=admin"
+            $args += "-Dsonar.password=20394117Tkd+"
         }
         
         & docker $args
@@ -259,7 +261,7 @@ if ($success) {
     Write-Host "[INFO] Credenciales SonarQube:" -ForegroundColor Cyan
     Write-Host "  Dashboard: http://localhost:9000" -ForegroundColor Green
     Write-Host "  Usuario: admin" -ForegroundColor Green
-    Write-Host "  Contraseña: admin" -ForegroundColor Green
+    Write-Host "  Contraseña: 20394117Tkd+" -ForegroundColor Green
 }
 else {
     Write-Host ""
@@ -267,10 +269,10 @@ else {
     Write-Host " ERROR EN EL ANALISIS" -ForegroundColor Red
     Write-Host "========================================" -ForegroundColor Red
     Write-Host ""
-    Write-Host "[DEBUG] Por favor verifica:" -ForegroundColor $Warning
-    Write-Host "  1. Docker esta ejecutando" -ForegroundColor $Info
-    Write-Host "  2. SonarQube en http://localhost:9000 esta disponible" -ForegroundColor $Info
-    Write-Host "  3. La red Docker es accesible" -ForegroundColor $Info
+    Write-Host "[DEBUG] Por favor verifica:" -ForegroundColor Yellow
+    Write-Host "  1. Docker esta ejecutando" -ForegroundColor Cyan
+    Write-Host "  2. SonarQube en http://localhost:9000 esta disponible" -ForegroundColor Cyan
+    Write-Host "  3. La red Docker es accesible" -ForegroundColor Cyan
 }
 
 Read-Host "`nPresiona Enter para finalizar"
