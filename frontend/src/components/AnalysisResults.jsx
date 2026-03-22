@@ -174,8 +174,82 @@ function ExtractionTab({ data, t }) {
         </div>
       </div>
 
-      {/* Medicamentos */}
-      {data.medications && data.medications.length > 0 && (
+      {/* Información del Médico */}
+      {(data.physician || data.physician_specialty) && (
+        <div className="extraction-section">
+          <h3>👨‍⚕️ Información del Médico</h3>
+          <div className="info-grid">
+            {data.physician && (
+              <div className="info-item">
+                <span className="label">Médico:</span>
+                <span className="value">{data.physician}</span>
+              </div>
+            )}
+            {data.physician_specialty && (
+              <div className="info-item">
+                <span className="label">Especialidad:</span>
+                <span className="value">{data.physician_specialty}</span>
+              </div>
+            )}
+            {data.physician_id && (
+              <div className="info-item">
+                <span className="label">Cédula/RUT:</span>
+                <span className="value">{data.physician_id}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Institución */}
+      {data.institution && (
+        <div className="extraction-section">
+          <h3>🏥 Institución Médica</h3>
+          <div className="institution-badge">
+            {data.institution}
+          </div>
+        </div>
+      )}
+
+      {/* Fecha del Documento */}
+      {data.date && (
+        <div className="extraction-section">
+          <h3>📅 Fecha del Documento</h3>
+          <div className="date-badge">
+            {data.date}
+          </div>
+        </div>
+      )}
+
+      {/* Diagnóstico */}
+      {data.diagnosis && data.diagnosis.length > 0 && (
+        <div className="extraction-section">
+          <h3>🔍 Diagnóstico</h3>
+          <div className="items-list">
+            {data.diagnosis.map((diag, idx) => (
+              <div key={idx} className="item-tag diagnosis-tag">
+                {diag}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Medicamentos - Vista Detallada */}
+      {data.medication_details && data.medication_details.length > 0 ? (
+        <div className="extraction-section">
+          <h3>💊 {t('documents.analysis.medications')} - Detallado</h3>
+          <div className="medications-detailed">
+            {data.medication_details.map((med, idx) => (
+              <div key={idx} className="medication-card">
+                <div className="med-name">{med.nombre}</div>
+                {med.dosis && <div className="med-info"><strong>Dosis:</strong> {med.dosis} mg</div>}
+                {med.indicaciones && <div className="med-info"><strong>Indicaciones:</strong> {med.indicaciones}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : data.medications && data.medications.length > 0 ? (
         <div className="extraction-section">
           <h3>💊 {t('documents.analysis.medications')}</h3>
           <div className="items-list">
@@ -186,10 +260,24 @@ function ExtractionTab({ data, t }) {
             ))}
           </div>
         </div>
-      )}
-      {(!data.medications || data.medications.length === 0) && (
+      ) : (
         <div className="extraction-section">
           <p className="no-data">{t('documents.analysis.noMedicationsFound')}</p>
+        </div>
+      )}
+
+      {/* Indicaciones */}
+      {data.indications && data.indications.length > 0 && (
+        <div className="extraction-section">
+          <h3>💉 Indicaciones Médicas</h3>
+          <div className="indications-list">
+            {data.indications.map((ind, idx) => (
+              <div key={idx} className="indication-item">
+                <div className="indication-number">{idx + 1}</div>
+                <div className="indication-text">{ind}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

@@ -805,19 +805,24 @@ def get_analyzer() -> MedSigLIPAnalyzer:
 
 def extract_medical_findings(file_path: str) -> Dict:
     """
-    Extraer información médica del documento
+    Extraer información médica COMPLETA del documento
+    
+    Extrae:
+    - Información del médico (nombre, especialidad, cédula, contacto)
+    - Fecha del documento
+    - Institución/Clínica
+    - Diagnóstico
+    - Indicaciones/Posología
+    - Medicamentos detallados
+    - Hallazgos clínicos
+    - Observaciones
     
     Soporta:
     - Imágenes (JPG, PNG) con OCR
     - PDFs con extracción de texto
     
     Returns:
-        Dict con:
-        - document_type: tipo identificado (receta, laboratorio, etc.)
-        - findings: hallazgos/diagnósticos detectados
-        - medications: medicamentos mencionados
-        - observations: observaciones clínicas
-        - extracted_text: texto completo extraído
+        Dict con todos los campos extraídos
     """
     import re
     
@@ -826,7 +831,6 @@ def extract_medical_findings(file_path: str) -> Dict:
         text = ""
         
         if file_path.lower().endswith('.pdf'):
-            # Extraer de PDF
             try:
                 import PyPDF2
                 with open(file_path, 'rb') as pdf_file:
@@ -837,7 +841,6 @@ def extract_medical_findings(file_path: str) -> Dict:
                 logger.warning(f"No se pudo extraer PDF: {e}")
                 text = ""
         else:
-            # Extraer de imagen con OCR
             try:
                 import pytesseract
                 image = Image.open(file_path)
@@ -851,15 +854,192 @@ def extract_medical_findings(file_path: str) -> Dict:
                 'status': 'no_text',
                 'message': 'No se pudo extraer texto del documento',
                 'document_type': 'unknown',
-                'findings': [],
+                'physician': None,
+                'specialty': None,
+                'institution': None,
+                'date': None,
+                'diagnosis': [],
                 'medications': [],
-                'observations': []
+                'indications': [],
+                'observations': [],
+                'findings': [],
+                'extracted_text': '',
+                'text_length': 0
             }
         
-        # Analizar el texto para encontrar información médica
         text_lower = text.lower()
         
-        # Detectar tipo de documento
+        # ==================== EXTRACCIÓN DE MÉDICO ====================
+        physician = None
+        physician_specialty = None
+        physician_id = None
+        
+        # Patrones para encontrar nombres de médicos
+        physician_patterns = [
+            r'(?:médico|dr\.?|doctor|profesional|responsable)\s*[:|\-]?\s*([a-záéíóú\s]+?)(?:\s+(?:\d{1,2}\.\d{3}\.\d{3}|\d{1,2}\.\d{3}\-\d))?(?:\n|$)',
+            r'prof(?:esional)?\.?\s*[:|\-]?\s*([a-záéíóú\s]+?)(?:\n|$)',
+            r'([a-záéíóú\s]{6,})\s+(?:md|medicina general|psicología|pediatría)'
+        ]
+        
+        for pattern in physician_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE | re.MULTILINE)
+            if matches:
+                physician = matches[0].strip().title()
+                break
+        
+        # Patrones para encontrar especialidad
+        specialty_keywords = {
+            'medicina general': ['medicina general', 'médico general'],
+            'pediatría': ['pediatría', 'pediatra', 'pediátrico'],
+            'cardiología': ['cardiología', 'cardiólogo'],
+            'neurología': ['neurología', 'neurólogo'],
+            'dermatología': ['dermatología', 'dermatólogo'],
+            'psicología': ['psicología', 'psicólogo', 'psiquiatría', 'psiquiatra'],
+            'ginecología': ['ginecología', 'ginecólogo'],
+            'oftalmología': ['oftalmología', 'oftalmólogo', 'optometría'],
+            'neumología': ['neumología', 'neumólogo'],
+            'gastroenterología': ['gastroenterología', 'gastroenterólogo'],
+            'urología': ['urología', 'urólogo'],
+            'traumatología': ['traumatología', 'traumatólogo', 'ortopedia'],
+            'oncología': ['oncología', 'oncólogo'],
+        }
+        
+        for specialty, keywords in specialty_keywords.items():
+            if any(kw in text_lower for kw in keywords):
+                physician_specialty = specialty
+                break
+        
+        # Extraer ID/Cédula del médico
+        id_pattern = r'(?:cédula|rut|id)[:\s\-]*(\d{1,2}\.\d{3}\.\d{3}[\-\s]?[0-9k]|\d+[\-\s]?\d+)'
+        id_match = re.search(id_pattern, text_lower)
+        if id_match:
+            physician_id = id_match.group(1).strip()
+        
+        # ==================== EXTRACCIÓN DE INSTITUCIÓN ====================
+        institution = None
+        institution_patterns = [
+            r'(?:clínica|hospital|centro|consultorio|institución)\s*[:|\-]?\s*([a-záéíóú0-9\s\.]+?)(?:\n|$)',
+            r'([a-záéíóú0-9\s\.]{5,}(?:clínica|hospital|centro))',
+        ]
+        
+        for pattern in institution_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE | re.MULTILINE)
+            if matches:
+                institution = matches[0].strip().title()
+                break
+        
+        # ==================== EXTRACCIÓN DE FECHA ====================
+        date = None
+        date_patterns = [
+            r'(?:fecha|date)\s*[:|\-]?\s*(\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4})',
+            r'(\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4})',
+        ]
+        
+        for pattern in date_patterns:
+            matches = re.findall(pattern, text)
+            if matches:
+                date = matches[0].strip()
+                break
+        
+        # ==================== EXTRACCIÓN DE DIAGNÓSTICO ====================
+        diagnosis = []
+        diagnosis_keywords = [
+            'diagnóstico', 'diagnóstco', 'dx', 'diagnosis',
+            'impresión clínica', 'evaluación', 'cuadro clínico'
+        ]
+        
+        for line in text.split('\n'):
+            line_lower = line.lower()
+            if any(kw in line_lower for kw in diagnosis_keywords):
+                # Obtener la siguiente línea que probablemente contiene el diagnóstico
+                idx = text.split('\n').index(line)
+                if idx + 1 < len(text.split('\n')):
+                    diag_text = text.split('\n')[idx + 1].strip()
+                    if diag_text and len(diag_text) > 5:
+                        diagnosis.append(diag_text)
+        
+        # ==================== EXTRACCIÓN DE MEDICAMENTOS DETALLADOS ====================
+        medications = []
+        medication_data = []
+        
+        common_medications = [
+            'paracetamol', 'ibuprofeno', 'aspirina', 'diclofenaco', 'ketorolaco', 'tramadol',
+            'amoxicilina', 'ciprofloxacino', 'azitromicina', 'doxiciclina', 'cefatrizina',
+            'lisinopril', 'atorvastatina', 'propranolol', 'metoprolol', 'losartán', 'enalapril',
+            'amlodipina', 'verapamilo', 'atenolol',
+            'omeprazol', 'ranitidina', 'domperidona', 'metoclopramida',
+            'sertralina', 'fluoxetina', 'paroxetina', 'amitriptilina', 'venlafaxina',
+            'clomipramina', 'escitalopram', 'sertalina',
+            'loratadina', 'fexofenadina', 'cetirizina', 'desloratadina',
+            'fluconazol', 'terbinafina', 'itraconazol',
+            'metformina', 'glibenclamida', 'insulina', 'gliclazida',
+            'salbutamol', 'fluticasona', 'budesonida', 'salmeterol',
+            'prednisona', 'dexametasona', 'vitamina', 'acido', 'acido fólico'
+        ]
+        
+        for med in common_medications:
+            pattern = rf'{med}\s+(\d+(?:\.\d+)?)\s*(?:mg|ml)?'
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            if matches or med in text_lower:
+                medications.append(med.capitalize())
+                
+                # Extraer dosis si existe
+                dosage = matches[0] if matches else None
+                dosage_pattern = rf'{med}[^.]*?(\d+(?:\.\d+)?)\s*(?:mg|ml).*?(?:c/día|veces|cada|durante)?[^.]*?([\d\w\s]+)?'
+                dosage_match = re.search(dosage_pattern, text, re.IGNORECASE)
+                if dosage_match:
+                    medication_data.append({
+                        'nombre': med.capitalize(),
+                        'dosis': dosage_match.group(1) if dosage_match.group(1) else dosage,
+                        'indicaciones': dosage_match.group(2).strip() if dosage_match.group(2) else 'Según posología',
+                    })
+        
+        # ==================== EXTRACCIÓN DE INDICACIONES ====================
+        indications = []
+        indication_keywords = [
+            'indicación', 'posología', 'dosis', 'c/día', 'cada día', 'veces',
+            'durante', 'tratamiento', 'tomar', 'consumir', 'inyectar', 'inhalar'
+        ]
+        
+        for line in text.split('\n'):
+            line_lower = line.lower()
+            if any(kw in line_lower for kw in indication_keywords):
+                clean_line = line.strip()
+                if clean_line and len(clean_line) > 5:
+                    indications.append(clean_line)
+        
+        # ==================== EXTRACCIÓN DE HALLAZGOS ====================
+        findings = []
+        common_findings = {
+            'normal': ['normal', 'sin particularidades', 'sin alteraciones'],
+            'presión alta': ['hipertensión', 'presión elevada', 'tensión alta', 'pa elevada'],
+            'glucosa elevada': ['hiperglucemia', 'glucosa alta', 'diabetes', 'glucosa >'],
+            'colesterol elevado': ['hipercolesterolemia', 'colesterol alto'],
+            'anemia': ['hemoglobina baja', 'anemia', 'bajo conteo', 'hb baja'],
+            'infección': ['infección', 'bacteria', 'virus', 'antibiótico'],
+            'inflamación': ['inflamación', 'inflamado', 'edema', 'inflamada'],
+            'fractura': ['fractura', 'rotura', 'quebrada'],
+        }
+        
+        for finding_type, keywords in common_findings.items():
+            if any(kw in text_lower for kw in keywords):
+                findings.append(finding_type)
+        
+        # ==================== EXTRACCIÓN DE OBSERVACIONES ====================
+        observations = []
+        observation_keywords = [
+            'observación', 'nota', 'comentario', 'recomendación', 'precaución',
+            'advertencia', 'importante', 'nota importante'
+        ]
+        
+        for line in text.split('\n'):
+            line_lower = line.lower()
+            if any(kw in line_lower for kw in observation_keywords):
+                clean_line = line.strip()
+                if clean_line and len(clean_line) > 10:
+                    observations.append(clean_line)
+        
+        # ==================== DETECTAR TIPO DE DOCUMENTO ====================
         document_type = 'Documento Médico'
         if any(word in text_lower for word in ['receta', 'medicamento', 'prescripción']):
             document_type = 'Receta Médica'
@@ -872,86 +1052,21 @@ def extract_medical_findings(file_path: str) -> Dict:
         elif any(word in text_lower for word in ['alergia', 'alergológico']):
             document_type = 'Prueba de Alergia'
         
-        # Extraer medicamentos comunes (lista expandida)
-        medications = []
-        # Lista ampliada de medicamentos comunes en Chile/Latinoamérica
-        common_medications = [
-            # Analgésicos
-            'paracetamol', 'ibuprofeno', 'aspirina', 'diclofenaco', 'ketorolaco', 'tramadol',
-            # Antibióticos
-            'amoxicilina', 'ciprofloxacino', 'azitromicina', 'doxiciclina', 'cefatrizina',
-            # Cardiovascular
-            'lisinopril', 'atorvastatina', 'propranolol', 'metoprolol', 'losartán', 'enalapril',
-            'amlodipina', 'verapamilo', 'atenolol',
-            # Gastrointestinal
-            'omeprazol', 'ranitidina', 'domperidona', 'metoclopramida',
-            # Antidepresivos/Neurológicos
-            'sertralina', 'fluoxetina', 'paroxetina', 'amitriptilina', 'venlafaxina',
-            'clomipramina', 'escitalopram', 'sertalina',
-            # Antihistamínicos
-            'loratadina', 'fexofenadina', 'cetirizina', 'desloratadina',
-            # Antiinfecciosos
-            'fluconazol', 'terbinafina', 'itraconazol',
-            # Endocrinología
-            'metformina', 'glibenclamida', 'insulina', 'gliclazida',
-            # Pulmonar
-            'salbutamol', 'fluticasona', 'budesonida', 'salmeterol',
-            # Otros comunes
-            'prednisona', 'dexametasona', 'vitamina', 'acido', 'acido fólico'
-        ]
-        
-        for med in common_medications:
-            if med in text_lower:
-                medications.append(med.capitalize())
-        
-        # Extraer hallazgos comunes
-        findings = []
-        common_findings = {
-            'normal': ['normal', 'sin particularidades', 'sin alteraciones'],
-            'presión alta': ['hipertensión', 'presión elevada', 'tensión alta'],
-            'glucosa elevada': ['hiperglucemia', 'glucosa alta', 'diabetes'],
-            'colesterol elevado': ['hipercolesterolemia', 'colesterol alto'],
-            'anémia': ['hemoglobina baja', 'anemia', 'bajo conteo'],
-            'infección': ['infección', 'bacteria', 'virus', 'antibiótico'],
-            'inflamación': ['inflamación', 'inflamado', 'edema'],
-            'fractura': ['fractura', 'rotura', 'quebrada']
-        }
-        
-        for finding_type, keywords in common_findings.items():
-            if any(kw in text_lower for kw in keywords):
-                findings.append(finding_type)
-        
-        # Extraer observaciones e indicaciones
-        observations = []
-        current_observation = ""
-        
-        for line in text.split('\n'):
-            line_lower = line.lower().strip()
-            
-            # Palabras clave para identificar observaciones
-            observation_keywords = [
-                'observación', 'nota', 'comentario', 'observar', 'indicación', 
-                'instrucción', 'posología', 'dosis', 'treatment', 'tratamiento',
-                'durante', 'cada', 'diario', 'c/día', 'comprimido', 'tableta',
-                'recomendación', 'precaución', 'advertencia'
-            ]
-            
-            # Si la línea contiene palabras clave o números (indicación de dosis)
-            has_keyword = any(kw in line_lower for kw in observation_keywords)
-            has_dosage = any(char.isdigit() and any(d in line_lower for d in ['mg', 'ml', 'c/', 'veces', 'dosis']))
-            
-            if has_keyword or (has_dosage and len(line.strip()) > 5):
-                clean_line = line.strip()
-                if clean_line and len(clean_line) > 5 and not any(char.isdigit() and len(clean_line) < 3 for char in clean_line):
-                    observations.append(clean_line)
-        
         return {
             'status': 'success',
             'document_type': document_type,
-            'findings': list(set(findings)) if findings else [],  # Remover duplicados
+            'physician': physician,
+            'physician_specialty': physician_specialty,
+            'physician_id': physician_id,
+            'institution': institution,
+            'date': date,
+            'diagnosis': list(set(diagnosis)) if diagnosis else [],
             'medications': list(set(medications)) if medications else [],
-            'observations': observations[:3],  # Primeras 3 observaciones
-            'extracted_text': text[:500] + '...' if len(text) > 500 else text,  # Primeros 500 caracteres
+            'medication_details': medication_data,
+            'indications': indications[:5],  # Primeras 5 indicaciones
+            'findings': list(set(findings)) if findings else [],
+            'observations': observations[:3],
+            'extracted_text': text[:500] + '...' if len(text) > 500 else text,
             'text_length': len(text)
         }
     
@@ -961,7 +1076,15 @@ def extract_medical_findings(file_path: str) -> Dict:
             'status': 'error',
             'message': str(e),
             'document_type': 'unknown',
-            'findings': [],
+            'physician': None,
+            'physician_specialty': None,
+            'physician_id': None,
+            'institution': None,
+            'date': None,
+            'diagnosis': [],
             'medications': [],
+            'medication_details': [],
+            'indications': [],
+            'findings': [],
             'observations': []
         }
