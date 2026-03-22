@@ -57,6 +57,8 @@ db.sqlite3
 db.sqlite3-journal
 /media
 /staticfiles
+/backend/.env
+backend/.env
 
 # Unit test / coverage
 htmlcov/
@@ -98,6 +100,27 @@ dist-ssr/
 *.swo
 *~
 .DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# ============================================
+# 🐳 DOCKER & SERVICIOS
+# ============================================
+docker-compose.override.yml
+.dockerignore
+
+# ============================================
+# 📊 SONARQUBE REPORTS
+# ============================================
+sonar-reports/
+.sonarqube/
+
+# ============================================
+# 📝 LOGS
+# ============================================
+logs/
+*.log
+*.log.*
 Thumbs.db
 *.sublime-project
 *.sublime-workspace
