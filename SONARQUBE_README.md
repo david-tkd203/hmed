@@ -16,6 +16,15 @@
 .\start-security-analysis.bat
 ```
 
+### Opción 3: Si hay problemas descargando (alternativa)
+```powershell
+# Descarga manualmente sonar-scanner
+.\download-sonar-scanner.bat
+
+# Luego ejecuta el análisis
+.\start-security-analysis.bat
+```
+
 ---
 
 ## ¿Qué hace el script?
