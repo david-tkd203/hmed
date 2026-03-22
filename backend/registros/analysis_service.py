@@ -1107,14 +1107,21 @@ def extract_medical_findings(file_path: str) -> Dict:
             'physician_id': physician_id,
             'institution': institution,
             'date': date,
-            'diagnosis': [d for d in diagnosis if d][:3],  # Max 3 diagnósticos únicos
+            'diagnosis': [d for d in diagnosis if d][:5],  # Max 5 diagnósticos únicos
             'medications': list(dict.fromkeys(medications)) if medications else [],  # Sin duplicados
-            'medication_details': medication_data[:8],  # Max 8 medicamentos detallados
-            'indications': [ind for ind in indications if len(ind) > 5][:5],  # Primeras 5 indicaciones válidas
-            'findings': [f for f in findings if f][:6],  # Max 6 hallazgos
-            'observations': [obs for obs in observations if len(obs) > 10][:3],  # Máx 3 observaciones
-            'extracted_text': text[:300] + '...' if len(text) > 300 else text,
-            'text_length': len(text)
+            'medication_details': medication_data[:15],  # Max 15 medicamentos detallados (aumentado)
+            'indications': [ind for ind in indications if len(ind) > 5][:10],  # Max 10 indicaciones (aumentado)
+            'findings': [f for f in findings if f][:10],  # Max 10 hallazgos (aumentado)
+            'observations': [obs for obs in observations if len(obs) > 10][:5],  # Max 5 observaciones (aumentado)
+            'extracted_text': text[:500] + '...' if len(text) > 500 else text,
+            'text_length': len(text),
+            'extraction_metrics': {
+                'total_medications_found': len(medications),
+                'total_diagnoses': len(diagnosis),
+                'total_indications': len(indications),
+                'total_findings': len(findings),
+                'text_quality': 'high' if len(text) > 500 else 'medium' if len(text) > 100 else 'low'
+            }
         }
     
     except Exception as e:
