@@ -112,6 +112,44 @@ sonar.host.url=http://sonarqube:9000
     }
 }
 
+function Get-SonarQubeToken {
+    Write-Host "[*] Intentando generar token de SonarQube..." -ForegroundColor Cyan
+    
+    try {
+        # Codificar credenciales por defecto: admin:admin
+        $auth = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("admin:admin"))
+        
+        $headers = @{
+            "Authorization" = "Basic $auth"
+            "Content-Type" = "application/x-www-form-urlencoded"
+        }
+        
+        # Generar token
+        $response = Invoke-WebRequest `
+            -Uri "http://localhost:9000/api/user_tokens/generate" `
+            -Method Post `
+            -Headers $headers `
+            -Body "name=HMED-Scanner-$(Get-Date -Format 'yyyyMMdd-HHmmss')" `
+            -UseBasicParsing `
+            -TimeoutSec 10 `
+            -ErrorAction Stop
+        
+        $token = ($response.Content | ConvertFrom-Json).token
+        if ($token) {
+            Write-Host "[OK] Token generado exitosamente" -ForegroundColor Green
+            return $token
+        }
+        else {
+            Write-Host "[WARN] Token vacío, usando credenciales directas" -ForegroundColor Yellow
+            return $null
+        }
+    }
+    catch {
+        Write-Host "[WARN] No se pudo generar token, usando credenciales directas" -ForegroundColor Yellow
+        return $null
+    }
+}
+
 function Run-SonarAnalysisWithDocker {
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Green
@@ -122,6 +160,9 @@ function Run-SonarAnalysisWithDocker {
     try {
         Write-Host "[*] Ejecutando sonar-scanner con Docker..." -ForegroundColor Cyan
         
+        # Intentar obtener token
+        $token = Get-SonarQubeToken
+        
         $networkName = Get-DockerNetworkName
         $currentDir = Get-Location
         
@@ -129,6 +170,7 @@ function Run-SonarAnalysisWithDocker {
         Write-Host "[INFO] Directorio: $currentDir" -ForegroundColor Cyan
         Write-Host ""
         
+        # Preparar argumentos
         $args = @(
             "run", "--rm",
             "--network=$networkName",
@@ -137,10 +179,19 @@ function Run-SonarAnalysisWithDocker {
             "-Dsonar.projectKey=HMED",
             "-Dsonar.projectName=HMED - Sistema de Historico Clinico",
             "-Dsonar.sources=/usr/src/backend/registros,/usr/src/frontend/src",
-            "-Dsonar.host.url=http://sonarqube:9000",
-            "-Dsonar.login=admin",
-            "-Dsonar.password=20394117Tkd+"
+            "-Dsonar.host.url=http://sonarqube:9000"
         )
+        
+        # Si se generó token, usarlo; si no, usar credenciales
+        if ($token) {
+            Write-Host "[INFO] Usando token para autenticación" -ForegroundColor Cyan
+            $args += "-Dsonar.login=$token"
+        }
+        else {
+            Write-Host "[INFO] Usando credenciales (usuario/contraseña)" -ForegroundColor Cyan
+            $args += "-Dsonar.login=admin"
+            $args += "-Dsonar.password=admin"
+        }
         
         & docker $args
         
@@ -206,8 +257,9 @@ if ($success) {
     Write-Host "========================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "[INFO] Credenciales SonarQube:" -ForegroundColor Cyan
+    Write-Host "  Dashboard: http://localhost:9000" -ForegroundColor Green
     Write-Host "  Usuario: admin" -ForegroundColor Green
-    Write-Host "  Contrasena: admin" -ForegroundColor Green
+    Write-Host "  Contraseña: admin" -ForegroundColor Green
 }
 else {
     Write-Host ""
