@@ -872,13 +872,34 @@ def extract_medical_findings(file_path: str) -> Dict:
         elif any(word in text_lower for word in ['alergia', 'alergológico']):
             document_type = 'Prueba de Alergia'
         
-        # Extraer medicamentos comunes (lista simplificada)
+        # Extraer medicamentos comunes (lista expandida)
         medications = []
+        # Lista ampliada de medicamentos comunes en Chile/Latinoamérica
         common_medications = [
-            'paracetamol', 'ibuprofeno', 'amoxicilina', 'metformina', 'lisinopril',
-            'omeprazol', 'atorvastatina', 'aspirina', 'ciprofloxacino', 'loratadina',
-            'propranolol', 'fluconazol', 'doxiciclina', 'azitromicina', 'prednisona'
+            # Analgésicos
+            'paracetamol', 'ibuprofeno', 'aspirina', 'diclofenaco', 'ketorolaco', 'tramadol',
+            # Antibióticos
+            'amoxicilina', 'ciprofloxacino', 'azitromicina', 'doxiciclina', 'cefatrizina',
+            # Cardiovascular
+            'lisinopril', 'atorvastatina', 'propranolol', 'metoprolol', 'losartán', 'enalapril',
+            'amlodipina', 'verapamilo', 'atenolol',
+            # Gastrointestinal
+            'omeprazol', 'ranitidina', 'domperidona', 'metoclopramida',
+            # Antidepresivos/Neurológicos
+            'sertralina', 'fluoxetina', 'paroxetina', 'amitriptilina', 'venlafaxina',
+            'clomipramina', 'escitalopram', 'sertalina',
+            # Antihistamínicos
+            'loratadina', 'fexofenadina', 'cetirizina', 'desloratadina',
+            # Antiinfecciosos
+            'fluconazol', 'terbinafina', 'itraconazol',
+            # Endocrinología
+            'metformina', 'glibenclamida', 'insulina', 'gliclazida',
+            # Pulmonar
+            'salbutamol', 'fluticasona', 'budesonida', 'salmeterol',
+            # Otros comunes
+            'prednisona', 'dexametasona', 'vitamina', 'acido', 'acido fólico'
         ]
+        
         for med in common_medications:
             if med in text_lower:
                 medications.append(med.capitalize())
@@ -900,12 +921,28 @@ def extract_medical_findings(file_path: str) -> Dict:
             if any(kw in text_lower for kw in keywords):
                 findings.append(finding_type)
         
-        # Extraer observaciones (párrafos que contienen observación, nota, comentario)
+        # Extraer observaciones e indicaciones
         observations = []
+        current_observation = ""
+        
         for line in text.split('\n'):
-            if any(word in line.lower() for word in ['observación', 'nota', 'comentario', 'observar', 'indicación']):
+            line_lower = line.lower().strip()
+            
+            # Palabras clave para identificar observaciones
+            observation_keywords = [
+                'observación', 'nota', 'comentario', 'observar', 'indicación', 
+                'instrucción', 'posología', 'dosis', 'treatment', 'tratamiento',
+                'durante', 'cada', 'diario', 'c/día', 'comprimido', 'tableta',
+                'recomendación', 'precaución', 'advertencia'
+            ]
+            
+            # Si la línea contiene palabras clave o números (indicación de dosis)
+            has_keyword = any(kw in line_lower for kw in observation_keywords)
+            has_dosage = any(char.isdigit() and any(d in line_lower for d in ['mg', 'ml', 'c/', 'veces', 'dosis']))
+            
+            if has_keyword or (has_dosage and len(line.strip()) > 5):
                 clean_line = line.strip()
-                if clean_line and len(clean_line) > 10:
+                if clean_line and len(clean_line) > 5 and not any(char.isdigit() and len(clean_line) < 3 for char in clean_line):
                     observations.append(clean_line)
         
         return {

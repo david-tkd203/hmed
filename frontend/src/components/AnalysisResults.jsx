@@ -25,7 +25,7 @@ export default function AnalysisResults({
   loading = false,
   error = null,
 }) {
-  const { t } = useTranslation(['documents']);
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('extraction');
   const [selectedSimilar, setSelectedSimilar] = useState(null);
 
@@ -44,7 +44,7 @@ export default function AnalysisResults({
         <div className="analysis-results-modal">
           <div className="analysis-loading">
             <div className="loading-spinner"></div>
-            <p>{t('analysis.analyzing')}</p>
+            <p>{t('documents.analysis.analyzing')}</p>
           </div>
         </div>
       </div>
@@ -57,7 +57,7 @@ export default function AnalysisResults({
       <div className="analysis-results-overlay" onClick={onClose}>
         <div className="analysis-results-modal" onClick={(e) => e.stopPropagation()}>
           <div className="analysis-header">
-            <h2>{t('analysis.error')}</h2>
+            <h2>{t('documents.analysis.error')}</h2>
             <button className="close-button" onClick={onClose}>×</button>
           </div>
           <div className="analysis-error">
@@ -65,7 +65,7 @@ export default function AnalysisResults({
           </div>
           <div className="analysis-footer">
             <button className="btn-close" onClick={onClose}>
-              {t('analysis.close')}
+              {t('documents.analysis.close')}
             </button>
           </div>
         </div>
@@ -78,7 +78,7 @@ export default function AnalysisResults({
       <div className="analysis-results-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="analysis-header">
-          <h2>{t('analysis.title')}</h2>
+          <h2>{t('documents.analysis.title')}</h2>
           <button className="close-button" onClick={onClose}>×</button>
         </div>
 
@@ -89,27 +89,27 @@ export default function AnalysisResults({
             onClick={() => setActiveTab('extraction')}
             disabled={!extractionData}
           >
-            {t('analysis.tabExtraction')} 📄
+            {t('documents.analysis.tabExtraction')} 📄
           </button>
           <button
             className={`tab-button ${activeTab === 'analysis' ? 'active' : ''}`}
             onClick={() => setActiveTab('analysis')}
           >
-            {t('analysis.tabAnalysis')}
+            {t('documents.analysis.tabAnalysis')}
           </button>
           <button
             className={`tab-button ${activeTab === 'classification' ? 'active' : ''}`}
             onClick={() => setActiveTab('classification')}
             disabled={!classificationData}
           >
-            {t('analysis.tabClassification')}
+            {t('documents.analysis.tabClassification')}
           </button>
           <button
             className={`tab-button ${activeTab === 'similar' ? 'active' : ''}`}
             onClick={() => setActiveTab('similar')}
             disabled={!similarDocuments || similarDocuments.length === 0}
           >
-            {t('analysis.tabSimilar')}
+            {t('documents.analysis.tabSimilar')}
           </button>
         </div>
 
@@ -144,7 +144,7 @@ export default function AnalysisResults({
         {/* Footer */}
         <div className="analysis-footer">
           <button className="btn-close" onClick={onClose}>
-            {t('analysis.close')}
+            {t('documents.analysis.close')}
           </button>
         </div>
       </div>
@@ -159,7 +159,7 @@ function ExtractionTab({ data, t }) {
   if (!data) {
     return (
       <div className="tab-content">
-        <p className="no-data">{t('analysis.extractedInfo')}</p>
+        <p className="no-data">{t('documents.analysis.extractedInfo')}</p>
       </div>
     );
   }
@@ -168,16 +168,16 @@ function ExtractionTab({ data, t }) {
     <div className="tab-content extraction-tab">
       {/* Tipo de Documento */}
       <div className="extraction-section">
-        <h3>📋 {t('analysis.documentType')}</h3>
+        <h3>📋 {t('documents.analysis.documentType')}</h3>
         <div className="document-type-badge">
-          {data.document_type || t('analysis.documentType')}
+          {data.document_type || t('documents.analysis.documentType')}
         </div>
       </div>
 
       {/* Medicamentos */}
       {data.medications && data.medications.length > 0 && (
         <div className="extraction-section">
-          <h3>💊 {t('analysis.medications')}</h3>
+          <h3>💊 {t('documents.analysis.medications')}</h3>
           <div className="items-list">
             {data.medications.map((med, idx) => (
               <div key={idx} className="item-tag">
@@ -189,14 +189,14 @@ function ExtractionTab({ data, t }) {
       )}
       {(!data.medications || data.medications.length === 0) && (
         <div className="extraction-section">
-          <p className="no-data">{t('analysis.noMedicationsFound')}</p>
+          <p className="no-data">{t('documents.analysis.noMedicationsFound')}</p>
         </div>
       )}
 
       {/* Hallazgos */}
       {data.findings && data.findings.length > 0 && (
         <div className="extraction-section">
-          <h3>🔍 {t('analysis.findings')}</h3>
+          <h3>🔍 {t('documents.analysis.findings')}</h3>
           <div className="items-list">
             {data.findings.map((finding, idx) => (
               <div key={idx} className="item-tag findings-tag">
@@ -208,14 +208,14 @@ function ExtractionTab({ data, t }) {
       )}
       {(!data.findings || data.findings.length === 0) && (
         <div className="extraction-section">
-          <p className="no-data">{t('analysis.noFindingsFound')}</p>
+          <p className="no-data">{t('documents.analysis.noFindingsFound')}</p>
         </div>
       )}
 
       {/* Observaciones */}
       {data.observations && data.observations.length > 0 && (
         <div className="extraction-section">
-          <h3>📝 {t('analysis.observations')}</h3>
+          <h3>📝 {t('documents.analysis.observations')}</h3>
           <div className="observations-list">
             {data.observations.map((obs, idx) => (
               <div key={idx} className="observation-item">
@@ -227,14 +227,14 @@ function ExtractionTab({ data, t }) {
       )}
       {(!data.observations || data.observations.length === 0) && (
         <div className="extraction-section">
-          <p className="no-data">{t('analysis.noObservationsFound')}</p>
+          <p className="no-data">{t('documents.analysis.noObservationsFound')}</p>
         </div>
       )}
 
       {/* Texto Extraído */}
       {data.extracted_text && (
         <div className="extraction-section">
-          <h3>📰 {t('analysis.extractedText')} ({data.text_length || 0} {t('documents.characters')})</h3>
+          <h3>📰 {t('documents.analysis.extractedText')} ({data.text_length || 0} {t('documents.characters')})</h3>
           <div className="extracted-text">
             <p>{data.extracted_text}</p>
           </div>
@@ -243,7 +243,7 @@ function ExtractionTab({ data, t }) {
 
       {data.status === 'no_text' && (
         <div className="no-data-message">
-          <p>⚠️ {t('analysis.extractedInfo')}</p>
+          <p>⚠️ {t('documents.analysis.extractedInfo')}</p>
           <p className="text-small">{t('documents.uploadError')}</p>
         </div>
       )}
@@ -258,7 +258,7 @@ function AnalysisTab({ data, t, documentId }) {
   if (!data) {
     return (
       <div className="tab-content">
-        <p className="no-data">{t('analysis.noAnalysis')}</p>
+        <p className="no-data">{t('documents.analysis.noAnalysis')}</p>
       </div>
     );
   }
@@ -267,18 +267,18 @@ function AnalysisTab({ data, t, documentId }) {
     <div className="tab-content analysis-tab">
       {/* Metadata */}
       <div className="analysis-section">
-        <h3>{t('analysis.metadata')}</h3>
+        <h3>{t('documents.analysis.metadata')}</h3>
         <div className="metadata-grid">
           <div className="metadata-item">
-            <span className="label">{t('analysis.documentId')}</span>
+            <span className="label">{t('documents.analysis.documentId')}</span>
             <span className="value">{documentId}</span>
           </div>
           <div className="metadata-item">
-            <span className="label">{t('analysis.model')}</span>
+            <span className="label">{t('documents.analysis.model')}</span>
             <span className="value">{data.modelo || 'MedSigLIP-448px'}</span>
           </div>
           <div className="metadata-item">
-            <span className="label">{t('analysis.confidence')}</span>
+            <span className="label">{t('documents.analysis.confidence')}</span>
             <div className="confidence-bar">
               <div
                 className="confidence-fill"
@@ -292,15 +292,15 @@ function AnalysisTab({ data, t, documentId }) {
             </div>
           </div>
           <div className="metadata-item">
-            <span className="label">{t('analysis.embeddingDim')}</span>
+            <span className="label">{t('documents.analysis.embeddingDim')}</span>
             <span className="value">{data.embedding_dim || 448}</span>
           </div>
           <div className="metadata-item">
-            <span className="label">{t('analysis.processingTime')}</span>
+            <span className="label">{t('documents.analysis.processingTime')}</span>
             <span className="value">{(data.processing_time || 0).toFixed(2)}s</span>
           </div>
           <div className="metadata-item">
-            <span className="label">{t('analysis.timestamp')}</span>
+            <span className="label">{t('documents.analysis.timestamp')}</span>
             <span className="value">
               {new Date(data.timestamp).toLocaleString()}
             </span>
@@ -311,18 +311,18 @@ function AnalysisTab({ data, t, documentId }) {
       {/* Image Metadata */}
       {data.image_metadata && (
         <div className="analysis-section">
-          <h3>{t('analysis.imageMetadata')}</h3>
+          <h3>{t('documents.analysis.imageMetadata')}</h3>
           <div className="metadata-grid">
             <div className="metadata-item">
-              <span className="label">{t('analysis.imageWidth')}</span>
+              <span className="label">{t('documents.analysis.imageWidth')}</span>
               <span className="value">{data.image_metadata.width} px</span>
             </div>
             <div className="metadata-item">
-              <span className="label">{t('analysis.imageHeight')}</span>
+              <span className="label">{t('documents.analysis.imageHeight')}</span>
               <span className="value">{data.image_metadata.height} px</span>
             </div>
             <div className="metadata-item">
-              <span className="label">{t('analysis.imageFormat')}</span>
+              <span className="label">{t('documents.analysis.imageFormat')}</span>
               <span className="value">{data.image_metadata.format}</span>
             </div>
           </div>
@@ -332,16 +332,16 @@ function AnalysisTab({ data, t, documentId }) {
       {/* Embeddings Info */}
       {data.embeddings && (
         <div className="analysis-section">
-          <h3>{t('analysis.embeddings')}</h3>
+          <h3>{t('documents.analysis.embeddings')}</h3>
           <div className="embeddings-info">
             <p>
-              {t('analysis.embeddingsDescription', {
+              {t('documents.analysis.embeddingsDescription', {
                 count: data.embeddings.length || 0,
               })}
             </p>
             {data.embeddings.length > 0 && (
               <div className="embeddings-preview">
-                <p className="embeddings-label">{t('analysis.preview')}:</p>
+                <p className="embeddings-label">{t('documents.analysis.preview')}:</p>
                 <div className="embeddings-values">
                   {(Array.isArray(data.embeddings)
                     ? data.embeddings.slice(0, 10)
@@ -370,7 +370,7 @@ function ClassificationTab({ data, t }) {
   if (!data || !data.findings) {
     return (
       <div className="tab-content">
-        <p className="no-data">{t('analysis.noClassification')}</p>
+        <p className="no-data">{t('documents.analysis.noClassification')}</p>
       </div>
     );
   }
@@ -378,7 +378,7 @@ function ClassificationTab({ data, t }) {
   return (
     <div className="tab-content classification-tab">
       <div className="analysis-section">
-        <h3>{t('analysis.findings')}</h3>
+        <h3>{t('documents.analysis.findings')}</h3>
 
         {Object.keys(data.findings).length > 0 ? (
           <div className="findings-grid">
@@ -400,12 +400,12 @@ function ClassificationTab({ data, t }) {
             ))}
           </div>
         ) : (
-          <p className="no-data">{t('analysis.noFindings')}</p>
+          <p className="no-data">{t('documents.analysis.noFindings')}</p>
         )}
 
         {data.timestamp && (
           <p className="classification-timestamp">
-            {t('analysis.classifiedAt')}:{' '}
+            {t('documents.analysis.classifiedAt')}:{' '}
             {new Date(data.timestamp).toLocaleString()}
           </p>
         )}
@@ -421,7 +421,7 @@ function SimilarDocumentsTab({ documents, selected, onSelect, t }) {
   if (!documents || documents.length === 0) {
     return (
       <div className="tab-content">
-        <p className="no-data">{t('analysis.noSimilar')}</p>
+        <p className="no-data">{t('documents.analysis.noSimilar')}</p>
       </div>
     );
   }
@@ -430,7 +430,7 @@ function SimilarDocumentsTab({ documents, selected, onSelect, t }) {
     <div className="tab-content similar-tab">
       <div className="analysis-section">
         <h3>
-          {t('analysis.similarCount', {
+          {t('documents.analysis.similarCount', {
             count: documents.length,
           })}
         </h3>
@@ -446,7 +446,7 @@ function SimilarDocumentsTab({ documents, selected, onSelect, t }) {
               <div className="document-info">
                 <h4>{doc.tipo_documento || 'Documento'}</h4>
                 <p className="document-specialty">
-                  {doc.especialidad && `${t('analysis.specialty')}: ${doc.especialidad}`}
+                  {doc.especialidad && `${t('documents.analysis.specialty')}: ${doc.especialidad}`}
                 </p>
                 <p className="document-date">
                   {doc.created_at && new Date(doc.created_at).toLocaleDateString()}
@@ -471,7 +471,7 @@ function SimilarDocumentsTab({ documents, selected, onSelect, t }) {
 
         {documents.length >= 5 && (
           <p className="similar-info">
-            {t('analysis.showingTop5')}
+            {t('documents.analysis.showingTop5')}
           </p>
         )}
       </div>
