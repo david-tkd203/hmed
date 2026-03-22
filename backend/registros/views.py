@@ -18,6 +18,11 @@ import random
 
 logger = logging.getLogger(__name__)
 
+# ==================== CONSTANTES DE MENSAJES ====================
+DOC_NOT_FOUND = DOC_NOT_FOUND
+DOC_NOT_FOUND_PERMISSION = DOC_NOT_FOUND_PERMISSION
+FILE_DOC_NOT_FOUND = FILE_DOC_NOT_FOUND
+
 # ==================== RATE LIMITING CONFIGURACIÓN ====================
 # Login: 5 intentos por hora
 # Register: 3 registros por hora  
@@ -463,7 +468,7 @@ def analyze_document(request, doc_id):
     except MedicalDocument.DoesNotExist:
         logger.warning(f"❌ Document not found: {doc_id}")
         return Response(
-            {'error': 'Documento no encontrado o no tienes permiso'},
+            {'error': DOC_NOT_FOUND_PERMISSION},
             status=status.HTTP_404_NOT_FOUND
         )
     
@@ -553,7 +558,7 @@ def analyze_document(request, doc_id):
         image_path = document.archivo.path if document.archivo else None
         if not image_path:
             return Response(
-                {'error': 'Archivo de documento no encontrado'},
+                {'error': FILE_DOC_NOT_FOUND},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -630,7 +635,7 @@ def extract_findings(request, doc_id):
         
     except MedicalDocument.DoesNotExist:
         return Response(
-            {'error': 'Documento no encontrado o no tienes permiso'},
+            {'error': DOC_NOT_FOUND_PERMISSION},
             status=status.HTTP_404_NOT_FOUND
         )
     
@@ -638,7 +643,7 @@ def extract_findings(request, doc_id):
         # Obtener ruta del archivo
         if not document.archivo:
             return Response(
-                {'error': 'Archivo de documento no encontrado'},
+                {'error': FILE_DOC_NOT_FOUND},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -683,7 +688,7 @@ def classify_document_findings(request, doc_id):
         document = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
     except MedicalDocument.DoesNotExist:
         return Response(
-            {'error': 'Documento no encontrado'},
+            {'error': DOC_NOT_FOUND},
             status=status.HTTP_404_NOT_FOUND
         )
     
@@ -727,7 +732,7 @@ def classify_document_findings(request, doc_id):
         image_path = document.archivo.path if document.archivo else None
         if not image_path:
             return Response(
-                {'error': 'Archivo de documento no encontrado'},
+                {'error': FILE_DOC_NOT_FOUND},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -1176,7 +1181,7 @@ def delete_document(request, doc_id):
 
     except MedicalDocument.DoesNotExist:
         return Response(
-            {'detail': 'Documento no encontrado'},
+            {'detail': DOC_NOT_FOUND},
             status=status.HTTP_404_NOT_FOUND
         )
     except Exception as e:
@@ -1213,14 +1218,14 @@ def analyze_medical_document_text(request, doc_id):
             document = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
         except MedicalDocument.DoesNotExist:
             return Response(
-                {'error': 'Documento no encontrado o no tienes permiso'},
+                {'error': DOC_NOT_FOUND_PERMISSION},
                 status=status.HTTP_404_NOT_FOUND
             )
         
         # Obtener ruta del archivo
         if not document.archivo:
             return Response(
-                {'error': 'Archivo de documento no encontrado'},
+                {'error': FILE_DOC_NOT_FOUND},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -1352,7 +1357,7 @@ def get_document_analysis(request, doc_id):
     
     except MedicalDocument.DoesNotExist:
         return Response(
-            {'error': 'Documento no encontrado'},
+            {'error': DOC_NOT_FOUND},
             status=status.HTTP_404_NOT_FOUND
         )
     except Exception as e:
@@ -1413,7 +1418,7 @@ def batch_analyze_documents(request):
                 results['results'].append({
                     'doc_id': doc_id,
                     'status': 'error',
-                    'message': 'Documento no encontrado'
+                    'message': DOC_NOT_FOUND
                 })
         
         return Response({
@@ -1490,7 +1495,7 @@ def get_medical_summary(request, doc_id):
     
     except MedicalDocument.DoesNotExist:
         return Response(
-            {'error': 'Documento no encontrado'},
+            {'error': DOC_NOT_FOUND},
             status=status.HTTP_404_NOT_FOUND
         )
     except Exception as e:
@@ -1499,4 +1504,5 @@ def get_medical_summary(request, doc_id):
             {'error': f'Error generando resumen: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
 

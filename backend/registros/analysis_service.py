@@ -21,6 +21,9 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+# ==================== CONSTANTES ====================
+ESPECIALIDAD_OFTALMOLOGIA = 'oftalmología'
+
 # Intentar cargar las dependencias de IA de Google Health
 MODELS_AVAILABLE = False
 MEDSIGLIP_MODE = None  # 'local' o 'vertex-ai'
@@ -897,7 +900,7 @@ def extract_medical_findings(file_path: str) -> Dict:
             'dermatología': ['dermatología', 'dermatólogo'],
             'psicología': ['psicología', 'psicólogo', 'psiquiatría', 'psiquiatra'],
             'ginecología': ['ginecología', 'ginecólogo', 'obstetricia'],
-            'oftalmología': ['oftalmología', 'oftalmólogo', 'optometría'],
+            ESPECIALIDAD_OFTALMOLOGIA: ['oftalmología', 'oftalmólogo', 'optometría'],
             'neumología': ['neumología', 'neumólogo', 'neumonología'],
             'gastroenterología': ['gastroenterología', 'gastroenterólogo'],
             'urología': ['urología', 'urólogo'],
@@ -1094,7 +1097,7 @@ def extract_medical_findings(file_path: str) -> Dict:
             document_type = 'Reporte de Laboratorio'
         elif any(word in text_lower for word in ['radiografía', 'ecografía', 'tomografía', 'resonancia']):
             document_type = 'Imagen Diagnóstica'
-        elif any(word in text_lower for word in ['óptico', 'oftalmología', 'visión']):
+        elif any(word in text_lower for word in ['óptico', ESPECIALIDAD_OFTALMOLOGIA, 'visión']):
             document_type = 'Reporte Oftalmológico'
         elif any(word in text_lower for word in ['alergia', 'alergológico']):
             document_type = 'Prueba de Alergia'

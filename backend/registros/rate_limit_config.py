@@ -5,7 +5,7 @@ RATE_LIMITS = {
     # Autenticación - muy restrictivo por seguridad
     'login': '5/h',  # 5 intentos por hora
     'register': '3/h',  # 3 registros por hora
-    'password_reset': '3/h',  # 3 intentos de reset por hora
+    'pwd_reset': '3/h',  # 3 intentos de reset por hora
     'refresh_token': '10/h',  # 10 refreshes por hora
     
     # API Endpoints - moderado
