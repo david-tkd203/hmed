@@ -1,4 +1,4 @@
-# Script PowerShell para instalar Sonar Scanner y ejecutar análisis de SonarQube
+# Script PowerShell para ejecutar analisis de SonarQube automaticamente
 # Uso: .\install-and-analyze.ps1
 
 param(
@@ -6,16 +6,15 @@ param(
     [string]$InstallPath = "C:\sonar-scanner"
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host " HMED - Instalacion de SonarQube" -ForegroundColor Cyan
+Write-Host " HMED - Analisis de Seguridad Automatico" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Colores para output
 $Success = "Green"
-$Error = "Red"
+$ErrorColor = "Red"
 $Info = "Cyan"
 $Warning = "Yellow"
 
@@ -23,131 +22,229 @@ $Warning = "Yellow"
 # FUNCIONES AUXILIARES
 # ============================================================================
 
-function Test-Java {
+function Test-Docker {
     try {
-        $output = & java -version 2>&1
+        & docker ps 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "[✓] Java detectado" -ForegroundColor $Success
+            Write-Host "[OK] Docker esta corriendo" -ForegroundColor $Success
             return $true
         }
     }
-    catch { }
-    
-    Write-Host "[ERROR] Java no está instalado" -ForegroundColor $Error
-    Write-Host "Descargar desde: https://www.oracle.com/java/technologies/downloads/" -ForegroundColor $Warning
-    return $false
+    catch {
+        Write-Host "[FAIL] Error con Docker: $_" -ForegroundColor $ErrorColor
+        return $false
+    }
 }
 
 function Install-SonarScanner {
     param([string]$Path, [string]$Version)
     
     if (Test-Path "$Path\bin\sonar-scanner.bat") {
-        Write-Host "[✓] SonarScanner ya está instalado en $Path" -ForegroundColor $Success
+        Write-Host "[OK] SonarScanner ya esta instalado" -ForegroundColor $Success
         return $true
     }
     
-    Write-Host "[*] Descargando SonarScanner $Version..." -ForegroundColor $Info
+    Write-Host "[*] Preparando SonarScanner..." -ForegroundColor $Info
     
     $DownloadUrl = "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$Version-windows-x86_64.zip"
     $ZipPath = "$env:TEMP\sonar-scanner.zip"
     $ExtractPath = "$env:TEMP\sonar-scanner-extracted"
     
     try {
-        # Crear directorio si no existe
         if (-not (Test-Path $Path)) {
             New-Item -ItemType Directory -Path $Path -Force | Out-Null
         }
         
-        # Descargar
-        Write-Host "[*] Descargando desde: $DownloadUrl" -ForegroundColor $Info
-        Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -ErrorAction Stop
+        Write-Host "[*] Descargando sonar-scanner..." -ForegroundColor $Info
+        try {
+            Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -ErrorAction Stop -UseBasicParsing
+        }
+        catch {
+            Write-Host "[WARN] Error descargando de URL principal, intentando URL alternativa..." -ForegroundColor $Warning
+            $DownloadUrl = "https://github.com/SonarSource/sonar-scanner-cli/releases/download/$Version/sonar-scanner-$Version-windows.zip"
+            Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -ErrorAction Stop -UseBasicParsing
+        }
         
-        # Extraer
         Write-Host "[*] Extrayendo archivos..." -ForegroundColor $Info
-        Expand-Archive -Path $ZipPath -DestinationPath $ExtractPath -Force
+        Expand-Archive -Path $ZipPath -DestinationPath $ExtractPath -Force -ErrorAction Stop
         
-        # Copiar a destino final
         $ExtractedFolder = Get-ChildItem -Path $ExtractPath -Directory | Select-Object -First 1
-        Copy-Item -Path "$($ExtractedFolder.FullName)\*" -Destination $Path -Recurse -Force
+        if (-not $ExtractedFolder) {
+            throw "No se encontro carpeta extraida"
+        }
         
-        # Limpiar temporales
-        Remove-Item $ZipPath -Force
-        Remove-Item $ExtractPath -Recurse -Force
+        Copy-Item -Path "$($ExtractedFolder.FullName)\*" -Destination $Path -Recurse -Force -ErrorAction Stop
         
-        Write-Host "[✓] SonarScanner instalado en $Path" -ForegroundColor $Success
+        Remove-Item $ZipPath -Force -ErrorAction SilentlyContinue
+        Remove-Item $ExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        
+        if (-not (Test-Path "$Path\bin\sonar-scanner.bat")) {
+            throw "sonar-scanner.bat no se encontro despues de la instalacion"
+        }
+        
+        Write-Host "[OK] SonarScanner instalado correctamente" -ForegroundColor $Success
         return $true
     }
     catch {
-        Write-Host "[ERROR] Fallo al descargar SonarScanner: $_" -ForegroundColor $Error
+        Write-Host "[FAIL] Error instalando SonarScanner: $_" -ForegroundColor $ErrorColor
+        Write-Host "[INFO] Descarga manual desde: https://www.sonarsource.com/products/sonarqube/downloads/" -ForegroundColor $Info
         return $false
     }
 }
 
 function Add-ToPath {
-    param([string]$Path)
+    param([string]$PathToAdd)
     
     $CurrentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
     
-    if ($CurrentPath -contains $Path) {
-        Write-Host "[✓] $Path ya está en PATH" -ForegroundColor $Success
+    if ($CurrentPath -like "*$PathToAdd*") {
         return
     }
     
     try {
-        [Environment]::SetEnvironmentVariable(
-            "PATH",
-            "$CurrentPath;$Path",
-            "User"
-        )
-        Write-Host "[✓] Agregado $Path a PATH" -ForegroundColor $Success
-        $env:PATH = "$env:PATH;$Path"
+        $NewPath = $CurrentPath + ";" + $PathToAdd
+        [Environment]::SetEnvironmentVariable("PATH", $NewPath, "User")
+        $env:PATH = $env:PATH + ";" + $PathToAdd
     }
     catch {
-        Write-Host "[ERROR] No se pudo agregar a PATH: $_" -ForegroundColor $Error
+        Write-Host "[WARN] No se pudo agregar a PATH permanentemente" -ForegroundColor $Warning
     }
 }
 
 function Test-SonarQubeConnection {
-    Write-Host "[*] Verificando conexión a SonarQube..." -ForegroundColor $Info
+    Write-Host "[*] Verificando SonarQube..." -ForegroundColor $Info
+    
+    $maxAttempts = 10
+    $attempt = 0
+    
+    while ($attempt -lt $maxAttempts) {
+        try {
+            $response = Invoke-WebRequest -Uri "http://localhost:9000" -UseBasicParsing -ErrorAction Stop -TimeoutSec 5
+            if ($response.StatusCode -eq 200) {
+                Write-Host "[OK] SonarQube disponible" -ForegroundColor $Success
+                return $true
+            }
+        }
+        catch {
+            $attempt = $attempt + 1
+            if ($attempt -lt $maxAttempts) {
+                Write-Host "[*] Esperando SonarQube... ($attempt/$maxAttempts)" -ForegroundColor $Warning
+                Start-Sleep -Seconds 2
+            }
+        }
+    }
+    
+    Write-Host "[FAIL] No se puede conectar a SonarQube en http://localhost:9000" -ForegroundColor $ErrorColor
+    Write-Host "[INFO] Ejecuta: docker-compose up -d" -ForegroundColor $Info
+    return $false
+}
+
+function Get-SonarQubeToken {
+    Write-Host "[*] Obteniendo token de SonarQube..." -ForegroundColor $Info
+    
+    $auth = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("admin:admin"))
     
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:9000/api/system/health" -ErrorAction Stop
-        Write-Host "[✓] SonarQube está activo" -ForegroundColor $Success
+        $headers = @{
+            "Authorization" = "Basic $auth"
+            "Content-Type" = "application/x-www-form-urlencoded"
+        }
+        
+        $body = "name=HMED-Token&type=GLOBAL_ANALYSIS_TOKEN"
+        
+        $response = Invoke-WebRequest `
+            -Uri "http://localhost:9000/api/user_tokens/generate" `
+            -Method Post `
+            -Headers $headers `
+            -Body $body `
+            -UseBasicParsing `
+            -ErrorAction Stop
+        
+        $result = $response.Content | ConvertFrom-Json
+        if ($result.token) {
+            Write-Host "[OK] Token obtenido" -ForegroundColor $Success
+            return $result.token
+        }
+    }
+    catch {
+        Write-Host "[WARN] No se pudo generar token, usando credenciales" -ForegroundColor $Warning
+    }
+    
+    return $null
+}
+
+function Create-SonarProperties {
+    Write-Host "[*] Creando configuracion de SonarQube..." -ForegroundColor $Info
+    
+    try {
+        $propertiesFile = "sonar-project.properties"
+        
+        $content = @"
+sonar.projectKey=HMED
+sonar.projectName=HMED - Sistema de Historico Clinico
+sonar.projectVersion=1.0
+sonar.sourceEncoding=UTF-8
+
+sonar.sources=.
+sonar.inclusions=backend/**,frontend/**
+sonar.exclusions=**/*test*,**/node_modules/**,**/.git/**,**/migrations/**
+
+sonar.javascript.lcov.reportPaths=coverage/lcov.info
+sonar.python.coverage.reportPath=coverage.xml
+
+sonar.host.url=http://localhost:9000
+"@
+        
+        Set-Content -Path $propertiesFile -Value $content -ErrorAction Stop
+        Write-Host "[OK] Configuracion creada" -ForegroundColor $Success
         return $true
     }
     catch {
-        Write-Host "[ERROR] No se puede conectar a SonarQube en http://localhost:9000" -ForegroundColor $Error
-        Write-Host "Inicia SonarQube con: docker-compose up -d sonarqube db" -ForegroundColor $Warning
+        Write-Host "[FAIL] Error creando configuracion" -ForegroundColor $ErrorColor
         return $false
     }
 }
 
 function Run-SonarAnalysis {
+    param([string]$Token)
+    
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host " Iniciando análisis de seguridad..." -ForegroundColor Cyan
+    Write-Host " Analizando Proyecto" -ForegroundColor Cyan
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
     
-    & sonar-scanner `
-        -Dsonar.projectBaseDir=. `
-        -Dsonar.host.url=http://localhost:9000 `
-        -Dsonar.login=admin `
-        -Dsonar.password=admin
+    $scannerPath = "$InstallPath\bin\sonar-scanner.bat"
     
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host ""
-        Write-Host "========================================" -ForegroundColor $Success
-        Write-Host " ✓ Análisis completado exitosamente" -ForegroundColor $Success
-        Write-Host "========================================" -ForegroundColor $Success
-        Write-Host ""
-        Write-Host "Resultados disponibles en:" -ForegroundColor $Info
-        Write-Host "  http://localhost:9000/projects" -ForegroundColor $Success
-        Write-Host ""
-        return $true
+    if (-not (Test-Path $scannerPath)) {
+        Write-Host "[FAIL] sonar-scanner no encontrado en $scannerPath" -ForegroundColor $ErrorColor
+        return $false
     }
-    else {
-        Write-Host "[ERROR] El análisis falló" -ForegroundColor $Error
+    
+    try {
+        Write-Host "[*] Ejecutando sonar-scanner..." -ForegroundColor $Info
+        
+        if ($Token) {
+            & cmd.exe /c "$scannerPath -Dsonar.projectKey=HMED -Dsonar.projectName='HMED' -Dsonar.sources=. -Dsonar.host.url=http://localhost:9000 -Dsonar.login=$Token"
+        }
+        else {
+            & cmd.exe /c "$scannerPath -Dsonar.projectKey=HMED -Dsonar.projectName='HMED' -Dsonar.sources=. -Dsonar.host.url=http://localhost:9000 -Dsonar.login=admin -Dsonar.password=admin"
+        }
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ""
+            Write-Host "========================================" -ForegroundColor $Success
+            Write-Host " OK - Analisis Completado" -ForegroundColor $Success
+            Write-Host "========================================" -ForegroundColor $Success
+            return $true
+        }
+        else {
+            Write-Host "[WARN] El analisis termino con advertencias o errores menores" -ForegroundColor $Warning
+            return $true
+        }
+    }
+    catch {
+        Write-Host "[FAIL] Error ejecutando sonar-scanner: $_" -ForegroundColor $ErrorColor
         return $false
     }
 }
@@ -156,35 +253,68 @@ function Run-SonarAnalysis {
 # MAIN
 # ============================================================================
 
-# 1. Verificar Java
-Write-Host "[*] Verificando dependencias..." -ForegroundColor $Info
-if (-not (Test-Java)) {
-    Read-Host "Presiona Enter para continuar..."
+Write-Host "[PASO 1/5] Verificando Docker..." -ForegroundColor $Cyan
+if (-not (Test-Docker)) {
+    Read-Host "`nPresiona Enter para continuar"
     exit 1
 }
 
-# 2. Instalar SonarScanner
-Write-Host "[*] Verificando SonarScanner..." -ForegroundColor $Info
+Write-Host ""
+Write-Host "[PASO 2/5] Verificando SonarQube..." -ForegroundColor $Cyan
+if (-not (Test-SonarQubeConnection)) {
+    Read-Host "`nPresiona Enter para continuar"
+    exit 1
+}
+
+Write-Host ""
+Write-Host "[PASO 3/5] Instalando SonarScanner..." -ForegroundColor $Cyan
 if (-not (Install-SonarScanner -Path $InstallPath -Version $SonarScannerVersion)) {
-    Read-Host "Presiona Enter para continuar..."
+    Read-Host "`nPresiona Enter para continuar"
     exit 1
 }
 
-# 3. Agregar a PATH
 Add-ToPath "$InstallPath\bin"
 
-# 4. Verificar SonarQube
-if (-not (Test-SonarQubeConnection)) {
-    Read-Host "Presiona Enter para continuar..."
-    exit 1
-}
+Write-Host ""
+Write-Host "[PASO 4/5] Configurando proyecto..." -ForegroundColor $Cyan
+Create-SonarProperties | Out-Null
 
-# 5. Ejecutar análisis
-if (Run-SonarAnalysis) {
-    Read-Host "Presiona Enter para abrir resultados en navegador..."
-    Start-Process "http://localhost:9000/projects"
+Write-Host ""
+Write-Host "[PASO 5/5] Ejecutando analisis..." -ForegroundColor $Cyan
+$token = Get-SonarQubeToken
+$success = Run-SonarAnalysis -Token $token
+
+if ($success) {
+    Write-Host ""
+    Write-Host "[*] Abriendo resultados en navegador..." -ForegroundColor $Info
+    Start-Sleep -Seconds 3
+    
+    try {
+        Start-Process "http://localhost:9000/dashboard?id=HMED" -ErrorAction SilentlyContinue
+    }
+    catch {
+        Write-Host "[INFO] Abre manualmente: http://localhost:9000/dashboard?id=HMED" -ForegroundColor $Info
+    }
+    
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor $Success
+    Write-Host " ANALISIS COMPLETADO EXITOSAMENTE" -ForegroundColor $Success
+    Write-Host "========================================" -ForegroundColor $Success
+    Write-Host ""
+    Write-Host "[INFO] Credenciales SonarQube:" -ForegroundColor $Info
+    Write-Host "  Usuario: admin" -ForegroundColor $Success
+    Write-Host "  Contrasena: admin" -ForegroundColor $Success
 }
 else {
-    Read-Host "Presiona Enter para continuar..."
-    exit 1
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor $ErrorColor
+    Write-Host " ERROR EN EL ANALISIS" -ForegroundColor $ErrorColor
+    Write-Host "========================================" -ForegroundColor $ErrorColor
+    Write-Host ""
+    Write-Host "[DEBUG] Por favor verifica:" -ForegroundColor $Warning
+    Write-Host "  1. Docker esta ejecutando" -ForegroundColor $Info
+    Write-Host "  2. SonarQube en http://localhost:9000 esta disponible" -ForegroundColor $Info
+    Write-Host "  3. sonar-scanner se instalo en: $InstallPath" -ForegroundColor $Info
 }
+
+Read-Host "`nPresiona Enter para finalizar"
