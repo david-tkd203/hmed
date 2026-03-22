@@ -1,22 +1,21 @@
-# Script PowerShell para ejecutar analisis de SonarQube automaticamente
+# Script PowerShell para ejecutar analisis de SonarQube con Docker
 # Uso: .\install-and-analyze.ps1
-
-param(
-    [string]$SonarScannerVersion = "4.8.0.3345",
-    [string]$InstallPath = "C:\sonar-scanner"
-)
 
 $ErrorActionPreference = "Continue"
 
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host " HMED - Analisis de Seguridad Automatico" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Green
+Write-Host " HMED - Analisis de Seguridad con SonarQube" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 
 $Success = "Green"
 $ErrorColor = "Red"
 $Info = "Cyan"
 $Warning = "Yellow"
+
+# ============================================================================
+# FUNCIONES AUXILIARES
+# ============================================================================
 
 # ============================================================================
 # FUNCIONES AUXILIARES
@@ -36,107 +35,25 @@ function Test-Docker {
     }
 }
 
-function Install-SonarScanner {
-    param([string]$Path, [string]$Version)
-    
-    if (Test-Path "$Path\bin\sonar-scanner.bat") {
-        Write-Host "[OK] SonarScanner ya esta instalado" -ForegroundColor $Success
-        return $true
-    }
-    
-    Write-Host "[*] Preparando SonarScanner..." -ForegroundColor $Info
-    
-    $ZipPath = "$env:TEMP\sonar-scanner.zip"
-    $ExtractPath = "$env:TEMP\sonar-scanner-extracted"
-    
-    $urls = @(
-        "https://github.com/SonarSource/sonar-scanner-cli/releases/download/$Version/sonar-scanner-cli-$Version-windows-x86_64.zip",
-        "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$Version-windows-x86_64.zip"
-    )
-    
-    $downloadSuccess = $false
-    
-    foreach ($DownloadUrl in $urls) {
-        try {
-            Write-Host "[*] Intentando descargar desde: $DownloadUrl" -ForegroundColor $Info
-            
-            Invoke-WebRequest `
-                -Uri $DownloadUrl `
-                -OutFile $ZipPath `
-                -ErrorAction Stop `
-                -UseBasicParsing `
-                -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            
-            $downloadSuccess = $true
-            break
-        }
-        catch {
-            Write-Host "[WARN] Error: $_" -ForegroundColor $Warning
-            continue
-        }
-    }
-    
-    if (-not $downloadSuccess) {
-        Write-Host "[FAIL] No se pudo descargar de ninguna fuente" -ForegroundColor $ErrorColor
-        Write-Host ""
-        Write-Host "[OPCION 1] Descargar manualmente:" -ForegroundColor $Info
-        Write-Host "  1. Abre: https://www.sonarsource.com/products/sonarqube/downloads/" -ForegroundColor $Info
-        Write-Host "  2. Descarga: sonar-scanner-...-windows-x86_64.zip" -ForegroundColor $Info
-        Write-Host "  3. Extrae en: C:\sonar-scanner" -ForegroundColor $Info
-        Write-Host "  4. Ejecuta nuevamente este script" -ForegroundColor $Info
-        Write-Host ""
-        Write-Host "[OPCION 2] Usar curl (si está disponible):" -ForegroundColor $Info
-        Write-Host "  curl -o sonar-scanner.zip https://github.com/SonarSource/sonar-scanner-cli/releases/download/$Version/sonar-scanner-cli-$Version-windows-x86_64.zip" -ForegroundColor $Info
-        return $false
-    }
-    
+function Get-DockerNetworkName {
     try {
-        if (-not (Test-Path $Path)) {
-            New-Item -ItemType Directory -Path $Path -Force | Out-Null
+        $network = & docker network ls --filter name=hmed_network --quiet
+        if ($network) {
+            return $network
         }
         
-        Write-Host "[*] Extrayendo archivos..." -ForegroundColor $Info
-        Expand-Archive -Path $ZipPath -DestinationPath $ExtractPath -Force -ErrorAction Stop
-        
-        $ExtractedFolder = Get-ChildItem -Path $ExtractPath -Directory | Select-Object -First 1
-        if (-not $ExtractedFolder) {
-            throw "No se encontro carpeta extraida"
+        Write-Host "[WARN] Red hmed_network no encontrada, buscando alternativas..." -ForegroundColor $Warning
+        $networks = & docker network ls --format "{{.Name}}" | Select-String "hmed|historico"
+        if ($networks) {
+            return $networks -split "`n" | Select-Object -First 1
         }
         
-        Copy-Item -Path "$($ExtractedFolder.FullName)\*" -Destination $Path -Recurse -Force -ErrorAction Stop
-        
-        Remove-Item $ZipPath -Force -ErrorAction SilentlyContinue
-        Remove-Item $ExtractPath -Recurse -Force -ErrorAction SilentlyContinue
-        
-        if (-not (Test-Path "$Path\bin\sonar-scanner.bat")) {
-            throw "sonar-scanner.bat no se encontro despues de la instalacion"
-        }
-        
-        Write-Host "[OK] SonarScanner instalado correctamente" -ForegroundColor $Success
-        return $true
+        Write-Host "[INFO] Usando bridge por defecto" -ForegroundColor $Info
+        return "bridge"
     }
     catch {
-        Write-Host "[FAIL] Error instalando SonarScanner: $_" -ForegroundColor $ErrorColor
-        return $false
-    }
-}
-
-function Add-ToPath {
-    param([string]$PathToAdd)
-    
-    $CurrentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
-    
-    if ($CurrentPath -like "*$PathToAdd*") {
-        return
-    }
-    
-    try {
-        $NewPath = $CurrentPath + ";" + $PathToAdd
-        [Environment]::SetEnvironmentVariable("PATH", $NewPath, "User")
-        $env:PATH = $env:PATH + ";" + $PathToAdd
-    }
-    catch {
-        Write-Host "[WARN] No se pudo agregar a PATH permanentemente" -ForegroundColor $Warning
+        Write-Host "[INFO] Usando bridge por defecto" -ForegroundColor $Info
+        return "bridge"
     }
 }
 
@@ -168,40 +85,6 @@ function Test-SonarQubeConnection {
     return $false
 }
 
-function Get-SonarQubeToken {
-    Write-Host "[*] Obteniendo token de SonarQube..." -ForegroundColor $Info
-    
-    $auth = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("admin:admin"))
-    
-    try {
-        $headers = @{
-            "Authorization" = "Basic $auth"
-            "Content-Type" = "application/x-www-form-urlencoded"
-        }
-        
-        $body = "name=HMED-Token&type=GLOBAL_ANALYSIS_TOKEN"
-        
-        $response = Invoke-WebRequest `
-            -Uri "http://localhost:9000/api/user_tokens/generate" `
-            -Method Post `
-            -Headers $headers `
-            -Body $body `
-            -UseBasicParsing `
-            -ErrorAction Stop
-        
-        $result = $response.Content | ConvertFrom-Json
-        if ($result.token) {
-            Write-Host "[OK] Token obtenido" -ForegroundColor $Success
-            return $result.token
-        }
-    }
-    catch {
-        Write-Host "[WARN] No se pudo generar token, usando credenciales" -ForegroundColor $Warning
-    }
-    
-    return $null
-}
-
 function Create-SonarProperties {
     Write-Host "[*] Creando configuracion de SonarQube..." -ForegroundColor $Info
     
@@ -221,7 +104,7 @@ sonar.exclusions=**/*test*,**/node_modules/**,**/.git/**,**/migrations/**
 sonar.javascript.lcov.reportPaths=coverage/lcov.info
 sonar.python.coverage.reportPath=coverage.xml
 
-sonar.host.url=http://localhost:9000
+sonar.host.url=http://sonarqube:9000
 "@
         
         Set-Content -Path $propertiesFile -Value $content -ErrorAction Stop
@@ -234,31 +117,33 @@ sonar.host.url=http://localhost:9000
     }
 }
 
-function Run-SonarAnalysis {
-    param([string]$Token)
-    
+function Run-SonarAnalysisWithDocker {
     Write-Host ""
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host " Analizando Proyecto" -ForegroundColor Cyan
-    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Green
+    Write-Host " Ejecutando Analisis de Seguridad" -ForegroundColor Green
+    Write-Host "========================================" -ForegroundColor Green
     Write-Host ""
-    
-    $scannerPath = "$InstallPath\bin\sonar-scanner.bat"
-    
-    if (-not (Test-Path $scannerPath)) {
-        Write-Host "[FAIL] sonar-scanner no encontrado en $scannerPath" -ForegroundColor $ErrorColor
-        return $false
-    }
     
     try {
-        Write-Host "[*] Ejecutando sonar-scanner..." -ForegroundColor $Info
+        Write-Host "[*] Ejecutando sonar-scanner con Docker..." -ForegroundColor $Info
         
-        if ($Token) {
-            & cmd.exe /c "$scannerPath -Dsonar.projectKey=HMED -Dsonar.projectName='HMED' -Dsonar.sources=. -Dsonar.host.url=http://localhost:9000 -Dsonar.login=$Token"
-        }
-        else {
-            & cmd.exe /c "$scannerPath -Dsonar.projectKey=HMED -Dsonar.projectName='HMED' -Dsonar.sources=. -Dsonar.host.url=http://localhost:9000 -Dsonar.login=admin -Dsonar.password=admin"
-        }
+        $networkName = Get-DockerNetworkName
+        $currentDir = Get-Location
+        
+        Write-Host "[INFO] Red Docker: $networkName" -ForegroundColor $Info
+        Write-Host "[INFO] Directorio: $currentDir" -ForegroundColor $Info
+        Write-Host ""
+        
+        & docker run --rm `
+            --network=$networkName `
+            -v "${currentDir}:/usr/src" `
+            sonarsource/sonar-scanner-cli:latest `
+            -Dsonar.projectKey=HMED `
+            -Dsonar.projectName="HMED - Sistema de Historico Clinico" `
+            -Dsonar.sources=/usr/src/backend/registros,/usr/src/frontend/src `
+            -Dsonar.host.url=http://sonarqube:9000 `
+            -Dsonar.login=admin `
+            -Dsonar.password=admin
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
@@ -269,6 +154,7 @@ function Run-SonarAnalysis {
         }
         else {
             Write-Host "[WARN] El analisis termino con advertencias o errores menores" -ForegroundColor $Warning
+            Write-Host "[INFO] Verifica los resultados en http://localhost:9000/dashboard?id=HMED" -ForegroundColor $Info
             return $true
         }
     }
@@ -282,36 +168,26 @@ function Run-SonarAnalysis {
 # MAIN
 # ============================================================================
 
-Write-Host "[PASO 1/5] Verificando Docker..." -ForegroundColor $Cyan
+Write-Host "[PASO 1/4] Verificando Docker..." -ForegroundColor Green
 if (-not (Test-Docker)) {
     Read-Host "`nPresiona Enter para continuar"
     exit 1
 }
 
 Write-Host ""
-Write-Host "[PASO 2/5] Verificando SonarQube..." -ForegroundColor $Cyan
+Write-Host "[PASO 2/4] Verificando SonarQube..." -ForegroundColor Green
 if (-not (Test-SonarQubeConnection)) {
     Read-Host "`nPresiona Enter para continuar"
     exit 1
 }
 
 Write-Host ""
-Write-Host "[PASO 3/5] Instalando SonarScanner..." -ForegroundColor $Cyan
-if (-not (Install-SonarScanner -Path $InstallPath -Version $SonarScannerVersion)) {
-    Read-Host "`nPresiona Enter para continuar"
-    exit 1
-}
-
-Add-ToPath "$InstallPath\bin"
-
-Write-Host ""
-Write-Host "[PASO 4/5] Configurando proyecto..." -ForegroundColor $Cyan
+Write-Host "[PASO 3/4] Configurando proyecto..." -ForegroundColor Green
 Create-SonarProperties | Out-Null
 
 Write-Host ""
-Write-Host "[PASO 5/5] Ejecutando analisis..." -ForegroundColor $Cyan
-$token = Get-SonarQubeToken
-$success = Run-SonarAnalysis -Token $token
+Write-Host "[PASO 4/4] Ejecutando analisis..." -ForegroundColor Green
+$success = Run-SonarAnalysisWithDocker
 
 if ($success) {
     Write-Host ""
@@ -343,7 +219,7 @@ else {
     Write-Host "[DEBUG] Por favor verifica:" -ForegroundColor $Warning
     Write-Host "  1. Docker esta ejecutando" -ForegroundColor $Info
     Write-Host "  2. SonarQube en http://localhost:9000 esta disponible" -ForegroundColor $Info
-    Write-Host "  3. sonar-scanner se instalo en: $InstallPath" -ForegroundColor $Info
+    Write-Host "  3. La red Docker es accesible" -ForegroundColor $Info
 }
 
 Read-Host "`nPresiona Enter para finalizar"
