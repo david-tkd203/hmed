@@ -609,6 +609,63 @@ def analyze_document(request, doc_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def extract_findings(request, doc_id):
+    """
+    Extraer información médica del documento
+    
+    Endpoint: POST /api/documents/{doc_id}/extract-findings/
+    
+    Extrae:
+    - Tipo de documento (Receta, Laboratorio, Imagen, etc.)
+    - Hallazgos/diagnósticos detectados
+    - Medicamentos mencionados
+    - Observaciones clínicas
+    
+    Retorna: foundamental information from the medical document
+    """
+    try:
+        # Verificar que el documento pertenece al usuario autenticado
+        document = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
+        logger.info(f"Extrayendo hallazgos del documento {doc_id}")
+        
+    except MedicalDocument.DoesNotExist:
+        return Response(
+            {'error': 'Documento no encontrado o no tienes permiso'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    try:
+        # Obtener ruta del archivo
+        if not document.archivo:
+            return Response(
+                {'error': 'Archivo de documento no encontrado'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        image_path = document.archivo.path
+        
+        # Extraer información médica del documento
+        from registros.analysis_service import extract_medical_findings
+        findings = extract_medical_findings(image_path)
+        
+        logger.info(f"Información extraída del documento {doc_id}: {findings['status']}")
+        
+        return Response({
+            'id': document.id,
+            'message': 'Información extraída exitosamente',
+            'extraction': findings
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.error(f"Error extrayendo hallazgos del documento {doc_id}: {str(e)}")
+        return Response(
+            {'error': f'Error extrayendo información: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def classify_document_findings(request, doc_id):
     """
     Clasificar hallazgos médicos en documento

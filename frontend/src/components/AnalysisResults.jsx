@@ -8,6 +8,7 @@ import './AnalysisResults.css';
  * Props:
  * - documentId: ID del documento analizado
  * - analysisData: Datos del análisis (embeddings, confidence, etc.)
+ * - extractionData: Datos extraídos del documento (medicamentos, hallazgos, etc.)
  * - classificationData: Datos de clasificación de hallazgos
  * - similarDocuments: Lista de documentos similares
  * - onClose: Callback cuando se cierra el modal
@@ -17,6 +18,7 @@ import './AnalysisResults.css';
 export default function AnalysisResults({
   documentId,
   analysisData = null,
+  extractionData = null,
   classificationData = null,
   similarDocuments = [],
   onClose,
@@ -24,7 +26,7 @@ export default function AnalysisResults({
   error = null,
 }) {
   const { t } = useTranslation(['documents']);
-  const [activeTab, setActiveTab] = useState('analysis');
+  const [activeTab, setActiveTab] = useState('extraction');
   const [selectedSimilar, setSelectedSimilar] = useState(null);
 
   useEffect(() => {
@@ -83,6 +85,13 @@ export default function AnalysisResults({
         {/* Tab Navigation */}
         <div className="analysis-tabs">
           <button
+            className={`tab-button ${activeTab === 'extraction' ? 'active' : ''}`}
+            onClick={() => setActiveTab('extraction')}
+            disabled={!extractionData}
+          >
+            {t('analysis.tabExtraction')} 📄
+          </button>
+          <button
             className={`tab-button ${activeTab === 'analysis' ? 'active' : ''}`}
             onClick={() => setActiveTab('analysis')}
           >
@@ -106,6 +115,11 @@ export default function AnalysisResults({
 
         {/* Content */}
         <div className="analysis-content">
+          {/* Extraction Tab */}
+          {activeTab === 'extraction' && extractionData && (
+            <ExtractionTab data={extractionData} t={t} />
+          )}
+
           {/* Analysis Tab */}
           {activeTab === 'analysis' && (
             <AnalysisTab data={analysisData} t={t} documentId={documentId} />
@@ -134,6 +148,105 @@ export default function AnalysisResults({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Pestaña de extracción - Muestra información extraída del documento
+ */
+function ExtractionTab({ data, t }) {
+  if (!data) {
+    return (
+      <div className="tab-content">
+        <p className="no-data">{t('analysis.extractedInfo')}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="tab-content extraction-tab">
+      {/* Tipo de Documento */}
+      <div className="extraction-section">
+        <h3>📋 {t('analysis.documentType')}</h3>
+        <div className="document-type-badge">
+          {data.document_type || t('analysis.documentType')}
+        </div>
+      </div>
+
+      {/* Medicamentos */}
+      {data.medications && data.medications.length > 0 && (
+        <div className="extraction-section">
+          <h3>💊 {t('analysis.medications')}</h3>
+          <div className="items-list">
+            {data.medications.map((med, idx) => (
+              <div key={idx} className="item-tag">
+                {med}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {(!data.medications || data.medications.length === 0) && (
+        <div className="extraction-section">
+          <p className="no-data">{t('analysis.noMedicationsFound')}</p>
+        </div>
+      )}
+
+      {/* Hallazgos */}
+      {data.findings && data.findings.length > 0 && (
+        <div className="extraction-section">
+          <h3>🔍 {t('analysis.findings')}</h3>
+          <div className="items-list">
+            {data.findings.map((finding, idx) => (
+              <div key={idx} className="item-tag findings-tag">
+                {finding}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {(!data.findings || data.findings.length === 0) && (
+        <div className="extraction-section">
+          <p className="no-data">{t('analysis.noFindingsFound')}</p>
+        </div>
+      )}
+
+      {/* Observaciones */}
+      {data.observations && data.observations.length > 0 && (
+        <div className="extraction-section">
+          <h3>📝 {t('analysis.observations')}</h3>
+          <div className="observations-list">
+            {data.observations.map((obs, idx) => (
+              <div key={idx} className="observation-item">
+                <p>{obs}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {(!data.observations || data.observations.length === 0) && (
+        <div className="extraction-section">
+          <p className="no-data">{t('analysis.noObservationsFound')}</p>
+        </div>
+      )}
+
+      {/* Texto Extraído */}
+      {data.extracted_text && (
+        <div className="extraction-section">
+          <h3>📰 {t('analysis.extractedText')} ({data.text_length || 0} {t('documents.characters')})</h3>
+          <div className="extracted-text">
+            <p>{data.extracted_text}</p>
+          </div>
+        </div>
+      )}
+
+      {data.status === 'no_text' && (
+        <div className="no-data-message">
+          <p>⚠️ {t('analysis.extractedInfo')}</p>
+          <p className="text-small">{t('documents.uploadError')}</p>
+        </div>
+      )}
     </div>
   );
 }

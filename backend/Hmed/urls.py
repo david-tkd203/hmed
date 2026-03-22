@@ -16,6 +16,7 @@ from registros.views import (
     list_documents,
     delete_document,
     analyze_document,
+    extract_findings,
     classify_document_findings,
     search_similar_documents
 )
@@ -47,6 +48,7 @@ urlpatterns = [
     
     # =============== ANÁLISIS CON MEDSIGLIP ===============
     path('api/documents/<int:doc_id>/analyze/', analyze_document, name='analyze_document'),
+    path('api/documents/<int:doc_id>/extract-findings/', extract_findings, name='extract_findings'),
     path('api/documents/<int:doc_id>/classify/', classify_document_findings, name='classify_document_findings'),
     path('api/documents/search-similar/', search_similar_documents, name='search_similar_documents'),
     

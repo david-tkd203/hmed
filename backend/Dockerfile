@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     libmagic1 \
     git \
+    tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 # 5. Copiamos e instalamos requerimientos base de Python

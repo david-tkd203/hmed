@@ -799,3 +799,132 @@ def get_ocr_extractor() -> DocumentOCRExtractor:
 def get_analyzer() -> MedSigLIPAnalyzer:
     """Compatibilidad hacia atrás"""
     return get_image_analyzer()
+
+
+# ==================== EXTRACCIÓN DE INFORMACIÓN MÉDICA ====================
+
+def extract_medical_findings(file_path: str) -> Dict:
+    """
+    Extraer información médica del documento
+    
+    Soporta:
+    - Imágenes (JPG, PNG) con OCR
+    - PDFs con extracción de texto
+    
+    Returns:
+        Dict con:
+        - document_type: tipo identificado (receta, laboratorio, etc.)
+        - findings: hallazgos/diagnósticos detectados
+        - medications: medicamentos mencionados
+        - observations: observaciones clínicas
+        - extracted_text: texto completo extraído
+    """
+    import re
+    
+    try:
+        # Extraer texto del documento
+        text = ""
+        
+        if file_path.lower().endswith('.pdf'):
+            # Extraer de PDF
+            try:
+                import PyPDF2
+                with open(file_path, 'rb') as pdf_file:
+                    reader = PyPDF2.PdfReader(pdf_file)
+                    for page in reader.pages:
+                        text += page.extract_text() + "\n"
+            except Exception as e:
+                logger.warning(f"No se pudo extraer PDF: {e}")
+                text = ""
+        else:
+            # Extraer de imagen con OCR
+            try:
+                import pytesseract
+                image = Image.open(file_path)
+                text = pytesseract.image_to_string(image)
+            except Exception as e:
+                logger.warning(f"OCR failed: {e}")
+                text = ""
+        
+        if not text.strip():
+            return {
+                'status': 'no_text',
+                'message': 'No se pudo extraer texto del documento',
+                'document_type': 'unknown',
+                'findings': [],
+                'medications': [],
+                'observations': []
+            }
+        
+        # Analizar el texto para encontrar información médica
+        text_lower = text.lower()
+        
+        # Detectar tipo de documento
+        document_type = 'Documento Médico'
+        if any(word in text_lower for word in ['receta', 'medicamento', 'prescripción']):
+            document_type = 'Receta Médica'
+        elif any(word in text_lower for word in ['laboratorio', 'análisis', 'prueba', 'resultado']):
+            document_type = 'Reporte de Laboratorio'
+        elif any(word in text_lower for word in ['radiografía', 'ecografía', 'tomografía', 'resonancia']):
+            document_type = 'Imagen Diagnóstica'
+        elif any(word in text_lower for word in ['óptico', 'oftalmología', 'visión']):
+            document_type = 'Reporte Oftalmológico'
+        elif any(word in text_lower for word in ['alergia', 'alergológico']):
+            document_type = 'Prueba de Alergia'
+        
+        # Extraer medicamentos comunes (lista simplificada)
+        medications = []
+        common_medications = [
+            'paracetamol', 'ibuprofeno', 'amoxicilina', 'metformina', 'lisinopril',
+            'omeprazol', 'atorvastatina', 'aspirina', 'ciprofloxacino', 'loratadina',
+            'propranolol', 'fluconazol', 'doxiciclina', 'azitromicina', 'prednisona'
+        ]
+        for med in common_medications:
+            if med in text_lower:
+                medications.append(med.capitalize())
+        
+        # Extraer hallazgos comunes
+        findings = []
+        common_findings = {
+            'normal': ['normal', 'sin particularidades', 'sin alteraciones'],
+            'presión alta': ['hipertensión', 'presión elevada', 'tensión alta'],
+            'glucosa elevada': ['hiperglucemia', 'glucosa alta', 'diabetes'],
+            'colesterol elevado': ['hipercolesterolemia', 'colesterol alto'],
+            'anémia': ['hemoglobina baja', 'anemia', 'bajo conteo'],
+            'infección': ['infección', 'bacteria', 'virus', 'antibiótico'],
+            'inflamación': ['inflamación', 'inflamado', 'edema'],
+            'fractura': ['fractura', 'rotura', 'quebrada']
+        }
+        
+        for finding_type, keywords in common_findings.items():
+            if any(kw in text_lower for kw in keywords):
+                findings.append(finding_type)
+        
+        # Extraer observaciones (párrafos que contienen observación, nota, comentario)
+        observations = []
+        for line in text.split('\n'):
+            if any(word in line.lower() for word in ['observación', 'nota', 'comentario', 'observar', 'indicación']):
+                clean_line = line.strip()
+                if clean_line and len(clean_line) > 10:
+                    observations.append(clean_line)
+        
+        return {
+            'status': 'success',
+            'document_type': document_type,
+            'findings': list(set(findings)) if findings else [],  # Remover duplicados
+            'medications': list(set(medications)) if medications else [],
+            'observations': observations[:3],  # Primeras 3 observaciones
+            'extracted_text': text[:500] + '...' if len(text) > 500 else text,  # Primeros 500 caracteres
+            'text_length': len(text)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error extrayendo información médica: {str(e)}")
+        return {
+            'status': 'error',
+            'message': str(e),
+            'document_type': 'unknown',
+            'findings': [],
+            'medications': [],
+            'observations': []
+        }

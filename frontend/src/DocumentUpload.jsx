@@ -202,12 +202,27 @@ export default function DocumentUpload({ user, onBack, theme }) {
 
       console.log('✅ Análisis completado:', response.data);
 
+      // También extraer información médica del documento
+      console.log(`🔍 Extrayendo información del documento ${fileObj.docId}...`);
+      let extraction = null;
+      try {
+        const extractionResponse = await axiosInstance.post(
+          `/api/documents/${fileObj.docId}/extract-findings/`,
+          {}
+        );
+        extraction = extractionResponse.data.extraction;
+        console.log('✅ Información extraída:', extraction);
+      } catch (extractError) {
+        console.warn('⚠️ No se pudo extraer información:', extractError.message);
+      }
+
       setAnalysisState(prev => ({
         ...prev,
         [fileObj.id]: { 
           loading: false, 
           completed: true,
           analysis: response.data.analysis,
+          extraction: extraction,
           documentId: fileObj.docId
         }
       }));
@@ -216,7 +231,8 @@ export default function DocumentUpload({ user, onBack, theme }) {
       setSelectedAnalysis({
         fileId: fileObj.id,
         documentId: fileObj.docId,
-        analysis: response.data.analysis
+        analysis: response.data.analysis,
+        extraction: extraction
       });
       setShowAnalysisModal(true);
     } catch (error) {
@@ -430,6 +446,7 @@ export default function DocumentUpload({ user, onBack, theme }) {
         <AnalysisResults
           documentId={selectedAnalysis.documentId}
           analysisData={selectedAnalysis.analysis}
+          extractionData={selectedAnalysis.extraction}
           onClose={() => setShowAnalysisModal(false)}
           loading={false}
           error={null}
