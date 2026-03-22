@@ -669,6 +669,43 @@ def extract_findings(request, doc_id):
         )
 
 
+def _save_classification_analysis(document, findings_dict, is_mock=False):
+    """Helper para guardar análisis de clasificación"""
+    status_label = 'mock' if is_mock else 'completed'
+    ia_analisis = {}
+    if document.ia_analisis:
+        try:
+            ia_analisis = json.loads(document.ia_analisis)
+        except json.JSONDecodeError:
+            ia_analisis = {}
+    
+    ia_analisis['classification'] = {
+        'findings': findings_dict,
+        'timestamp': datetime.now().isoformat(),
+        'status': status_label
+    }
+    
+    document.ia_analisis = json.dumps(ia_analisis, default=str)
+    document.save()
+
+
+def _get_mock_classification(document, findings):
+    """Helper para clasificación simulada cuando analyzer no está disponible"""
+    logger.warning("⚠️ Analyzer not available, returning mock classification")
+    mock_predictions = {finding: random.uniform(0.6, 0.95) for finding in findings}
+    _save_classification_analysis(document, mock_predictions, is_mock=True)
+    return mock_predictions
+
+
+def _do_real_classification(document, doc_id, image_path, findings, analyzer):
+    """Helper para clasificación real"""
+    logger.info(f"Iniciando clasificación de hallazgos para documento {doc_id}")
+    classification_result = analyzer.classify_finding(image_path, findings)
+    predictions = classification_result.get('predictions', {})
+    _save_classification_analysis(document, predictions, is_mock=False)
+    return predictions
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def classify_document_findings(request, doc_id):
@@ -701,68 +738,25 @@ def classify_document_findings(request, doc_id):
             )
         
         analyzer = get_analyzer()
+        predictions = None
         
         if analyzer is None:
-            # Retornar clasificación simulada si los modelos no están disponibles
-            logger.warning(f"⚠️ Analyzer not available, returning mock classification")
-            mock_predictions = {finding: random.uniform(0.6, 0.95) for finding in findings}
-            
-            ia_analisis = {}
-            if document.ia_analisis:
-                try:
-                    ia_analisis = json.loads(document.ia_analisis)
-                except json.JSONDecodeError:
-                    ia_analisis = {}
-            
-            ia_analisis['classification'] = {
-                'findings': mock_predictions,
-                'timestamp': datetime.now().isoformat(),
-                'status': 'mock'
-            }
-            
-            document.ia_analisis = json.dumps(ia_analisis, default=str)
-            document.save()
-            
-            return Response({
-                'id': document.id,
-                'message': 'Mock classification completed',
-                'classification': mock_predictions
-            }, status=status.HTTP_200_OK)
-        
-        image_path = document.archivo.path if document.archivo else None
-        if not image_path:
-            return Response(
-                {'error': FILE_DOC_NOT_FOUND},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        logger.info(f"Iniciando clasificación de hallazgos para documento {doc_id}")
-        
-        # Realizar clasificación
-        classification_result = analyzer.classify_finding(image_path, findings)
-        
-        # Actualizar análisis con resultados de clasificación
-        ia_analisis = {}
-        if document.ia_analisis:
-            try:
-                ia_analisis = json.loads(document.ia_analisis)
-            except json.JSONDecodeError:
-                ia_analisis = {}
-        
-        ia_analisis['classification'] = {
-            'findings': classification_result.get('predictions', {}),
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        document.ia_analisis = json.dumps(ia_analisis, default=str)
-        document.save()
+            predictions = _get_mock_classification(document, findings)
+        else:
+            image_path = document.archivo.path if document.archivo else None
+            if not image_path:
+                return Response(
+                    {'error': FILE_DOC_NOT_FOUND},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            predictions = _do_real_classification(document, doc_id, image_path, findings, analyzer)
         
         logger.info(f"Clasificación completada para documento {doc_id}")
         
         return Response({
             'id': document.id,
             'message': 'Clasificación completada',
-            'classification': classification_result.get('predictions', {})
+            'classification': predictions
         }, status=status.HTTP_200_OK)
     
     except Exception as e:
@@ -771,6 +765,8 @@ def classify_document_findings(request, doc_id):
             {'error': f'Error en clasificación: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
 
 
 @api_view(['GET'])
