@@ -5,7 +5,7 @@ import AnalysisResults from './components/AnalysisResults';
 import axiosInstance from './api/axiosInstance';
 import './DocumentUpload.css';
 
-export default function DocumentUpload({ user, onBack, theme }) {
+export default function DocumentUpload({ onBack, theme }) {
   const { t } = useTranslation();
   const [files, setFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -245,8 +245,6 @@ export default function DocumentUpload({ user, onBack, theme }) {
       }));
     }
   };
-
-  const getFileObj = (id) => files.find(f => f.id === id);
 
   return (
     <div className={`document-upload-container ${theme}`}>

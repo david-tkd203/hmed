@@ -3,7 +3,7 @@ import axiosInstance from './api/axiosInstance';
 import { CheckCircle, XCircle, Phone, GeoAlt, ExclamationCircle, Heart } from 'react-bootstrap-icons';
 import './Onboarding.css';
 
-export default function Onboarding({ user, paciente, onComplete }) {
+export default function Onboarding({ paciente, onComplete }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
@@ -16,7 +16,6 @@ export default function Onboarding({ user, paciente, onComplete }) {
   });
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  const accessToken = localStorage.getItem('access_token');
 
   const handleChange = (e) => {
     const { name, value } = e.target;

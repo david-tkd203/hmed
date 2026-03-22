@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import axiosInstance from './api/axiosInstance';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Search, Prescription2, ExclamationCircle, Gear } from 'react-bootstrap-icons';
 import { useTranslation } from 'react-i18next';
 import './Medications.css';
 
-export default function Medications({ user, onBack, theme }) {
-  const { t, i18n } = useTranslation();
+export default function Medications({ onBack, theme }) {
+  const { t } = useTranslation();
   const [medications, setMedications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,7 +32,7 @@ export default function Medications({ user, onBack, theme }) {
   };
 
   // Buscar medicamentos en base de datos local ISP Chile
-  const searchMedications = async (query) => {
+  const searchMedications = useCallback(async (query) => {
     if (!query.trim()) {
       setMedications([]);
       return;
@@ -88,7 +87,7 @@ export default function Medications({ user, onBack, theme }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Base de datos local del ISP para búsquedas offline - Medicamentos chilenos con ingredientes completos
   const searchInLocalISPDatabase = (query) => {
@@ -264,7 +263,7 @@ export default function Medications({ user, onBack, theme }) {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [searchTerm, searchMedications]);
 
   // Agregar medicamento a mi lista
   const addToMyMedications = (medication) => {

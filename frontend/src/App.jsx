@@ -87,7 +87,7 @@ function App() {
           {}
         );
       }
-    } catch (err) {
+    } catch {
       // Error silencioso en logout
     } finally {
       // Limpiar localStorage
@@ -105,7 +105,6 @@ function App() {
     e.preventDefault();
     if (!file) return alert("Selecciona un archivo primero");
 
-    const accessToken = localStorage.getItem('access_token');
     const formData = new FormData();
     formData.append('documento_respaldo', file);
     formData.append('paciente', user.id);

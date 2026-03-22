@@ -26,7 +26,6 @@ export default function Profile({ user, onLogout, onBack, theme, setTheme }) {
   });
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  const accessToken = localStorage.getItem('access_token');
 
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
@@ -44,7 +43,7 @@ export default function Profile({ user, onLogout, onBack, theme, setTheme }) {
 
     setLoading(true);
     try {
-      const response = await axiosInstance.put(
+      await axiosInstance.put(
         `/api/profile/update/`,
         {
           nombre_completo: profileData.nombre,
@@ -84,7 +83,7 @@ export default function Profile({ user, onLogout, onBack, theme, setTheme }) {
 
     setLoading(true);
     try {
-      const response = await axiosInstance.post(
+      await axiosInstance.post(
         `/api/profile/change-password/`,
         {
           current_password: passwords.currentPassword,
