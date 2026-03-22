@@ -548,7 +548,7 @@ sonar-scanner `
   -Dsonar.projectBaseDir=. `
   -Dsonar.host.url=http://localhost:9000 `
   -Dsonar.login=admin `
-  -Dsonar.password=admin
+  -Dsonar.password=20394117Tkd+
 ```
 
 ### Ver Resultados

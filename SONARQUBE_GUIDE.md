@@ -79,7 +79,7 @@ sonar-scanner \
   -Dsonar.projectBaseDir=. \
   -Dsonar.host.url=http://localhost:9000 \
   -Dsonar.login=admin \
-  -Dsonar.password=admin
+  -Dsonar.password=20394117Tkd+
 ```
 
 ### Opción 3: Con Contraseña Token
@@ -130,7 +130,7 @@ sonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
 # Credenciales:
 sonar.host.url=http://localhost:9000
 sonar.login=admin
-sonar.password=admin
+sonar.password=20394117Tkd+
 ```
 
 ## 📝 Qué se Analiza
