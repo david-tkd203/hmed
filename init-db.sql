@@ -1,11 +1,9 @@
 -- Crear base de datos para SonarQube
 CREATE DATABASE sonarqube;
 
--- Crear usuario para SonarQube con permisos completos
-CREATE USER sonar_user WITH PASSWORD 'sonar_password';
-ALTER USER sonar_user CREATEDB;
-ALTER DATABASE sonarqube OWNER TO sonar_user;
+-- Nota: El usuario será creado por PostgreSQL usando POSTGRES_USER
+-- Otorgar permisos necesarios al usuario de base de datos
+-- Esta configuración presume que POSTGRES_USER es el usuario que ejecuta SonarQube
+GRANT ALL PRIVILEGES ON DATABASE hmed_db TO postgres;
+GRANT ALL PRIVILEGES ON SCHEMA public TO postgres;
 
--- Otorgar permisos necesarios
-GRANT ALL PRIVILEGES ON DATABASE sonarqube TO sonar_user;
-GRANT ALL PRIVILEGES ON SCHEMA public TO sonar_user;

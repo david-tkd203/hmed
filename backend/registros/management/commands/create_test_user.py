@@ -1,3 +1,4 @@
+import os
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from registros.models import Paciente
@@ -10,19 +11,19 @@ class Command(BaseCommand):
         parser.add_argument(
             '--username',
             type=str,
-            default='demo',
+            default=os.getenv('TEST_USERNAME', 'demo'),
             help='Nombre de usuario'
         )
         parser.add_argument(
             '--email',
             type=str,
-            default='demo@hmed.com',
+            default=os.getenv('TEST_EMAIL', 'demo@example.local'),
             help='Email del usuario'
         )
         parser.add_argument(
             '--password',
             type=str,
-            default='123456',
+            default=os.getenv('TEST_PASSWORD', 'changeme'),
             help='Contraseña'
         )
 
@@ -41,17 +42,17 @@ class Command(BaseCommand):
                     username=username,
                     email=email,
                     password=password,
-                    first_name='Demo',
-                    last_name='Usuario'
+                    first_name='Test',
+                    last_name='User'
                 )
                 
                 paciente = Paciente.objects.create(
                     usuario=user,
-                    numero_cedula='1234567890',
+                    numero_cedula='0000000000',
                     genero='M',
                     fecha_nacimiento=date(1990, 1, 1),
-                    ciudad='Bogotá',
-                    pais='Colombia'
+                    ciudad='Test City',
+                    pais='Test Country'
                 )
                 
                 self.stdout.write(
@@ -60,10 +61,10 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.SUCCESS(f'✓ Perfil de paciente creado')
                 )
-                self.stdout.write('\nCredenciales:')
+                self.stdout.write('\nDetalles:')
                 self.stdout.write(f'  Usuario: {username}')
-                self.stdout.write(f'  Contraseña: {password}')
                 self.stdout.write(f'  Email: {email}')
+                self.stdout.write(f'  Nota: Contraseña definida en variable de entorno TEST_PASSWORD')
 
         except Exception as e:
             self.stdout.write(
