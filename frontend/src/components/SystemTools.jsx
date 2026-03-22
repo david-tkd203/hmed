@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './SystemTools.css';
-import { Code, Check, AlertCircle } from 'react-bootstrap-icons';
+import { Code, Check, ExclamationTriangle } from 'react-bootstrap-icons';
 
 /**
  * Componente para mostrar herramientas de sistema disponibles
@@ -168,7 +168,7 @@ export default function SystemTools() {
       </div>
 
       <div className="tools-footer">
-        <AlertCircle size={16} />
+        <ExclamationTriangle size={16} />
         <p>Para máxima seguridad, cambia las contraseñas por defecto de SonarQube</p>
       </div>
     </div>
