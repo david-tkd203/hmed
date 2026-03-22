@@ -37,7 +37,7 @@ services:
 
   web:
     build: ./backend
-    command: bash -c "python manage.py migrate && bash /app/entrypoint.sh"
+    command: bash /app/entrypoint.sh
     volumes:
       - ./backend:/app
     ports:

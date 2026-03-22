@@ -10,6 +10,7 @@ from .serializers import LoginSerializer, RegisterSerializer, UserSerializer, Pa
 from django_ratelimit.decorators import ratelimit
 from .analysis_service import get_analyzer, MedicalImageProcessor
 from django.core.files.uploadedfile import UploadedFile
+from django.db import connection
 import mimetypes
 from datetime import datetime
 import json
@@ -17,6 +18,44 @@ import logging
 import random
 
 logger = logging.getLogger(__name__)
+
+# ==================== HEALTH CHECK ====================
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def health_check(request):
+    """
+    Endpoint de health check para verificar que la aplicación está funcionando.
+    Verifica conexión a la base de datos y estado general del servicio.
+    """
+    try:
+        # Verificar conexión a la base de datos
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        
+        db_status = "healthy"
+    except Exception as e:
+        logger.error(f"Health check - Database error: {str(e)}")
+        db_status = "unhealthy"
+        return Response(
+            {
+                "status": "unhealthy",
+                "message": "Database connection failed",
+                "details": {"database": db_status}
+            },
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    return Response(
+        {
+            "status": "healthy",
+            "message": "API is running and healthy",
+            "details": {
+                "database": db_status,
+                "timestamp": datetime.now().isoformat()
+            }
+        },
+        status=status.HTTP_200_OK
+    )
 
 # ==================== CONSTANTES DE MENSAJES ====================
 DOC_NOT_FOUND = "Documento no encontrado"

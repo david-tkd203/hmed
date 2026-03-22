@@ -4,6 +4,7 @@ from rest_framework import routers
 from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from registros.views import (
+    health_check,
     login_view, 
     register_view, 
     logout_view, 
@@ -26,6 +27,9 @@ router = routers.DefaultRouter()
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
+    
+    # =============== HEALTH CHECK (para Docker healthchecks) ===============
+    path('api/health/', health_check, name='health_check'),
     
     # =============== AUTENTICACIÓN JWT ===============
     path('api/login/', login_view, name='login'),

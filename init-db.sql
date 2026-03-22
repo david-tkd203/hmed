@@ -1,42 +1,23 @@
 -- ============================================
--- INICIALIZACIÓN DE BASE DE DATOS HISTORICO CLINICO
+-- INICIALIZACIÓN PARA PROYECTO HMED
 -- ============================================
 
--- Crear base de datos para SonarQube (separada de Django)
+-- 1. Crear la base de datos para SonarQube
+-- La base de datos 'hmed_db' ya fue creada por las variables de entorno de Docker
 CREATE DATABASE sonarqube;
 
--- Crear base de datos para Django (hmed_db ya se crea vía POSTGRES_DB)
--- Pero garantizamos que exista explícitamente
-CREATE DATABASE IF NOT EXISTS hmed_db;
+-- 2. Asignar al usuario 'admin' como dueño de ambas bases de datos
+-- Esto otorga permisos totales de forma automática y recursiva
+ALTER DATABASE hmed_db OWNER TO admin;
+ALTER DATABASE sonarqube OWNER TO admin;
 
--- ============================================
--- ASIGNAR PERMISOS AL USUARIO admin
--- ============================================
-
--- Permisos para la base de datos de aplicación
+-- 3. Asegurar privilegios adicionales (Opcional pero recomendado)
 GRANT ALL PRIVILEGES ON DATABASE hmed_db TO admin;
-
--- Permisos para la base de datos de SonarQube
 GRANT ALL PRIVILEGES ON DATABASE sonarqube TO admin;
 
--- Permisos de esquema en la base de datos hmed_db
-GRANT ALL PRIVILEGES ON SCHEMA public TO admin;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO admin;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO admin;
-
--- Permisos de esquema en la base de datos sonarqube
-\c sonarqube
-GRANT ALL PRIVILEGES ON SCHEMA public TO admin;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO admin;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO admin;
-
--- Volver a la base de datos por defecto
-\c hmed_db
-
 -- ============================================
--- VERIFICACIÓN FINAL
+-- NOTA TÉCNICA:
+-- No es necesario usar \c (connect) ni GRANT en esquemas aquí.
+-- Al ser OWNER, el usuario admin tendrá control total cuando
+-- Django y SonarQube inicien sus propias migraciones.
 -- ============================================
--- El servidor está listo para aceptar conexiones desde:
--- 1. Django en hmed_db con usuario admin
--- 2. SonarQube en sonarqube con usuario admin
-
