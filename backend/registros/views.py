@@ -444,6 +444,86 @@ def upload_registro_view(request):
 
 # ==================== MEDICAL IMAGE ANALYSIS ENDPOINTS ====================
 
+def _create_mock_analysis_data():
+    """Helper para crear datos de análisis simulado"""
+    return {
+        'timestamp': datetime.now().isoformat(),
+        'modelo': 'MedSigLIP-448px (MOCK)',
+        'embeddings': [random.random() for _ in range(448)],
+        'embedding_dim': 448,
+        'confidence': random.uniform(0.7, 0.95),
+        'processing_time': random.uniform(0.5, 2.0),
+        'image_metadata': {
+            'width': 448,
+            'height': 448,
+            'format': 'RGB'
+        },
+        'status': 'completed_mock'
+    }
+
+
+def _save_analysis_data(document, analysis_data):
+    """Helper para guardar datos de análisis"""
+    document.ia_analisis = json.dumps(analysis_data, default=str)
+    document.save()
+
+
+def _format_analysis_response(analysis_data):
+    """Helper para formatear respuesta de análisis"""
+    return {
+        'timestamp': analysis_data['timestamp'],
+        'modelo': analysis_data['modelo'],
+        'confidence': analysis_data['confidence'],
+        'embedding_dim': analysis_data['embedding_dim'],
+        'embeddings': analysis_data['embeddings'],
+        'image_metadata': analysis_data['image_metadata'],
+        'processing_time': analysis_data['processing_time'],
+        'status': analysis_data['status']
+    }
+
+
+def _handle_models_not_available(document, doc_id):
+    """Helper cuando los modelos de IA no están disponibles"""
+    logger.warning(f"⚠️ AI models not available for {doc_id}, using mock analysis")
+    analysis_data = _create_mock_analysis_data()
+    analysis_data['modelo'] = 'MedSigLIP-448px (MOCK - Models not installed)'
+    analysis_data['note'] = 'Análisis simulado. Para análisis real, instala tensorflow y transformers'
+    _save_analysis_data(document, analysis_data)
+    return analysis_data
+
+
+def _handle_analyzer_not_available(document, doc_id):
+    """Helper cuando el analizador no está disponible"""
+    logger.warning(f"⚠️ Analyzer not available for {doc_id}, using mock analysis")
+    analysis_data = _create_mock_analysis_data()
+    _save_analysis_data(document, analysis_data)
+    return analysis_data, 'completed_mock'
+
+
+def _do_real_analysis(analyzer, document, doc_id, image_path):
+    """Helper para análisis real"""
+    logger.info(f"Iniciando análisis de documento {doc_id}")
+    analysis_result = analyzer.analyze_image(image_path)
+    
+    analysis_data = {
+        'timestamp': datetime.now().isoformat(),
+        'modelo': 'MedSigLIP-448px',
+        'embeddings': analysis_result.get('embeddings', []),
+        'embedding_dim': 448,
+        'confidence': analysis_result.get('confidence', 0.0),
+        'processing_time': analysis_result.get('processing_time', 0.0),
+        'image_metadata': {
+            'width': analysis_result.get('image_shape', [0, 0])[1],
+            'height': analysis_result.get('image_shape', [0, 0])[0],
+            'format': 'RGB'
+        },
+        'status': 'completed'
+    }
+    
+    _save_analysis_data(document, analysis_data)
+    return analysis_data
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def analyze_document(request, doc_id):
@@ -462,7 +542,6 @@ def analyze_document(request, doc_id):
     logger.warning(f"📊 ANALYZE ENDPOINT CALLED - doc_id: {doc_id}, user: {request.user}")
     
     try:
-        # Verificar que el documento pertenece al usuario autenticado
         document = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
         logger.warning(f"✅ Document found: {document.id}")
     except MedicalDocument.DoesNotExist:
@@ -472,89 +551,28 @@ def analyze_document(request, doc_id):
             status=status.HTTP_404_NOT_FOUND
         )
     
-    # Verificar si los modelos de IA están disponibles
     from registros.analysis_service import MODELS_AVAILABLE
     logger.warning(f"🤖 MODELS_AVAILABLE: {MODELS_AVAILABLE}")
     
     if not MODELS_AVAILABLE:
-        logger.warning(f"⚠️ AI models not available, returning mock analysis")
-        # Análisis simulado/placeholder cuando los modelos no están disponibles
-        analysis_data = {
-            'timestamp': datetime.now().isoformat(),
-            'modelo': 'MedSigLIP-448px (MOCK - Models not installed)',
-            'embeddings': [random.random() for _ in range(448)],
-            'embedding_dim': 448,
-            'confidence': random.uniform(0.7, 0.95),
-            'processing_time': random.uniform(0.5, 2.0),
-            'image_metadata': {
-                'width': 448,
-                'height': 448,
-                'format': 'RGB'
-            },
-            'status': 'completed_mock',
-            'note': 'Análisis simulado. Para análisis real, instala tensorflow y transformers'
-        }
-        
-        document.ia_analisis = json.dumps(analysis_data, default=str)
-        document.save()
-        
+        analysis_data = _handle_models_not_available(document, doc_id)
         return Response({
             'id': document.id,
             'message': 'Análisis simulado completado (modelos no instalados)',
-            'analysis': {
-                'timestamp': analysis_data['timestamp'],
-                'modelo': analysis_data['modelo'],
-                'confidence': analysis_data['confidence'],
-                'embedding_dim': analysis_data['embedding_dim'],  # Correcto para frontend
-                'embeddings': analysis_data['embeddings'],  # Array de embeddings
-                'image_metadata': analysis_data['image_metadata'],  # Información de imagen
-                'processing_time': analysis_data['processing_time'],
-                'status': 'completed_mock',
-                'note': 'Análisis simulado. Para análisis real con MedSigLIP, instala requirements_ai.txt'
-            }
+            'analysis': _format_analysis_response(analysis_data)
         }, status=status.HTTP_200_OK)
     
     try:
-        # Obtener el analizador de MedSigLIP
         analyzer = get_analyzer()
         
-        # Si el analizador no está disponible, usar análisis simulado
         if analyzer is None:
-            logger.warning(f"⚠️ Analyzer not available for document {doc_id}, returning mock analysis")
-            mock_analysis_data = {
-                'timestamp': datetime.now().isoformat(),
-                'modelo': 'MedSigLIP-448px (MOCK)',
-                'embeddings': [random.random() for _ in range(448)],
-                'embedding_dim': 448,
-                'confidence': random.uniform(0.7, 0.95),
-                'processing_time': random.uniform(0.5, 2.0),
-                'image_metadata': {
-                    'width': 448,
-                    'height': 448,
-                    'format': 'RGB'
-                },
-                'status': 'completed_mock'
-            }
-            
-            document.ia_analisis = json.dumps(mock_analysis_data, default=str)
-            document.save()
-            
+            analysis_data = _handle_analyzer_not_available(document, doc_id)[0]
             return Response({
                 'id': document.id,
                 'message': 'Mock analysis completed (AI models not available)',
-                'analysis': {
-                    'timestamp': mock_analysis_data['timestamp'],
-                    'modelo': mock_analysis_data['modelo'],
-                    'confidence': mock_analysis_data['confidence'],
-                    'embedding_dim': mock_analysis_data['embedding_dim'],  # Correcto para frontend
-                    'embeddings': mock_analysis_data['embeddings'],  # Array de embeddings
-                    'image_metadata': mock_analysis_data['image_metadata'],  # Metadata de imagen
-                    'processing_time': mock_analysis_data['processing_time'],
-                    'status': 'completed_mock'
-                }
+                'analysis': _format_analysis_response(analysis_data)
             }, status=status.HTTP_200_OK)
         
-        # Obtener ruta del archivo
         image_path = document.archivo.path if document.archivo else None
         if not image_path:
             return Response(
@@ -562,46 +580,13 @@ def analyze_document(request, doc_id):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        logger.info(f"Iniciando análisis de documento {doc_id}")
-        
-        # Realizar análisis con MedSigLIP
-        analysis_result = analyzer.analyze_image(image_path)
-        
-        # Crear metadata de análisis
-        analysis_data = {
-            'timestamp': datetime.now().isoformat(),
-            'modelo': 'MedSigLIP-448px',
-            'embeddings': analysis_result.get('embeddings', []),
-            'embedding_dim': 448,
-            'confidence': analysis_result.get('confidence', 0.0),
-            'processing_time': analysis_result.get('processing_time', 0.0),
-            'image_metadata': {
-                'width': analysis_result.get('image_shape', [0, 0])[1],
-                'height': analysis_result.get('image_shape', [0, 0])[0],
-                'format': 'RGB'
-            },
-            'status': 'completed'
-        }
-        
-        # Guardar resultados en el modelo
-        document.ia_analisis = json.dumps(analysis_data, default=str)
-        document.save()
-        
+        analysis_data = _do_real_analysis(analyzer, document, doc_id, image_path)
         logger.info(f"Análisis completado para documento {doc_id}")
         
         return Response({
             'id': document.id,
             'message': 'Análisis completado exitosamente',
-            'analysis': {
-                'timestamp': analysis_data['timestamp'],
-                'modelo': analysis_data['modelo'],
-                'confidence': analysis_data['confidence'],
-                'embedding_dim': analysis_data['embedding_dim'],  # Correcto para frontend
-                'embeddings': analysis_data['embeddings'],  # Array de embeddings para visualizar
-                'image_metadata': analysis_data['image_metadata'],  # Metadata de imagen
-                'processing_time': analysis_data['processing_time'],
-                'status': 'completed'
-            }
+            'analysis': _format_analysis_response(analysis_data)
         }, status=status.HTTP_200_OK)
     
     except Exception as e:
@@ -610,6 +595,8 @@ def analyze_document(request, doc_id):
             {'error': f'Error en análisis: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
 
 
 @api_view(['POST'])
