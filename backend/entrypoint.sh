@@ -37,6 +37,7 @@ python manage.py shell << 'PYEOF'
 from django.contrib.auth.models import User
 from registros.models import Paciente
 from datetime import date
+import hashlib
 
 test_username = ''"${TEST_USERNAME}"''
 test_email = ''"${TEST_EMAIL}"''
@@ -62,11 +63,15 @@ try:
     else:
         print(f'✅ Usuario actualizado: {test_username}')
     
+    # Generar cédula única basada en el username
+    cedula_hash = hashlib.md5(test_username.encode()).hexdigest()[:10]
+    cedula_unica = cedula_hash.lstrip('0') or '0000000001'
+    
     # Crear o actualizar perfil de paciente
     paciente, created_pac = Paciente.objects.get_or_create(
         usuario=user,
         defaults={
-            'numero_cedula': '0000000000',
+            'numero_cedula': cedula_unica,
             'genero': 'M',
             'fecha_nacimiento': date(1990, 1, 1),
             'ciudad': 'Sistema',
@@ -75,9 +80,9 @@ try:
     )
     
     if created_pac:
-        print(f'✅ Perfil de paciente creado')
+        print(f'✅ Perfil de paciente creado (Cédula: {cedula_unica})')
     else:
-        print(f'✅ Perfil de paciente verificado')
+        print(f'✅ Perfil de paciente verificado (Cédula: {paciente.numero_cedula})')
         
 except Exception as e:
     print(f'⚠️  Error al crear usuario/paciente: {e}')

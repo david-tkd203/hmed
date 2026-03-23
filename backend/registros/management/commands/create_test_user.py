@@ -3,6 +3,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from registros.models import Paciente
 from datetime import date
+import hashlib
 
 class Command(BaseCommand):
     help = 'Crea un usuario de prueba para HMED'
@@ -33,38 +34,58 @@ class Command(BaseCommand):
         password = options['password']
 
         try:
-            if User.objects.filter(username=username).exists():
-                self.stdout.write(
-                    self.style.WARNING(f"✓ El usuario '{username}' ya existe")
-                )
-            else:
-                user = User.objects.create_user(
-                    username=username,
-                    email=email,
-                    password=password,
-                    first_name='Test',
-                    last_name='User'
-                )
-                
-                paciente = Paciente.objects.create(
-                    usuario=user,
-                    numero_cedula='0000000000',
-                    genero='M',
-                    fecha_nacimiento=date(1990, 1, 1),
-                    ciudad='Test City',
-                    pais='Test Country'
-                )
-                
+            # Crear o actualizar usuario
+            user, created = User.objects.get_or_create(
+                username=username,
+                defaults={
+                    'email': email,
+                    'first_name': 'Test',
+                    'last_name': 'User'
+                }
+            )
+            
+            # Actualizar contraseña
+            user.set_password(password)
+            user.save()
+            
+            if created:
                 self.stdout.write(
                     self.style.SUCCESS(f'✓ Usuario "{username}" creado correctamente')
                 )
+            else:
                 self.stdout.write(
-                    self.style.SUCCESS(f'✓ Perfil de paciente creado')
+                    self.style.WARNING(f'✓ Usuario "{username}" ya existe, contraseña actualizada')
                 )
-                self.stdout.write('\nDetalles:')
-                self.stdout.write(f'  Usuario: {username}')
-                self.stdout.write(f'  Email: {email}')
-                self.stdout.write(f'  Nota: Contraseña definida en variable de entorno TEST_PASSWORD')
+            
+            # Crear o actualizar perfil de paciente
+            # Generar cédula única basada en el username
+            cedula_hash = hashlib.md5(username.encode()).hexdigest()[:10]
+            cedula_unica = cedula_hash.lstrip('0') or '0000000001'  # Asegurar que no esté vacío
+            
+            paciente, created_pac = Paciente.objects.get_or_create(
+                usuario=user,
+                defaults={
+                    'numero_cedula': cedula_unica,
+                    'genero': 'M',
+                    'fecha_nacimiento': date(1990, 1, 1),
+                    'ciudad': 'Test City',
+                    'pais': 'Test Country'
+                }
+            )
+            
+            if created_pac:
+                self.stdout.write(
+                    self.style.SUCCESS(f'✓ Perfil de paciente creado (Cédula: {cedula_unica})')
+                )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(f'✓ Perfil de paciente ya existe (Cédula: {paciente.numero_cedula})')
+                )
+            
+            self.stdout.write('\nCredenciales:')
+            self.stdout.write(f'  Usuario: {username}')
+            self.stdout.write(f'  Email: {email}')
+            self.stdout.write(f'  Contraseña: {password}')
 
         except Exception as e:
             self.stdout.write(
