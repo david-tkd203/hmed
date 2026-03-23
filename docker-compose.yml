@@ -3,7 +3,7 @@ services:
     image: postgres:15
     volumes:
       - postgres_data:/var/lib/postgresql/data/
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     environment:
       - POSTGRES_DB=${DB_NAME:-hmed_db}
       - POSTGRES_USER=${DB_USER:-admin}
@@ -37,11 +37,13 @@ services:
 
   web:
     build: ./backend
-    command: bash /app/entrypoint.sh
+    command: bash -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000 --noreload"
     volumes:
       - ./backend:/app
     ports:
       - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DEBUG=${DEBUG:-True}
       - SECRET_KEY=${SECRET_KEY:-CHANGE_ME_IN_PRODUCTION}

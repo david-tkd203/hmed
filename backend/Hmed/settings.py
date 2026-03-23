@@ -26,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me-in-production')
 # FUERZA DEBUG A TRUE PARA DESARROLLO - No redirigir HTTP a HTTPS
 DEBUG = True  # Forzado a True para desarrollo
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,web').split(',')
+ALLOWED_HOSTS = ['*']  # Temporalmente permitir todos los hosts para desarrollo
 
 # ============== CRITICAL: APPEND_SLASH MUST BE FALSE ==============
 # Prevenir redirecciones 301 en CORS preflight OPTIONS requests
