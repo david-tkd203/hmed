@@ -50,20 +50,18 @@ except Exception as e:
 END
 echo ""
 
-# Recolectar archivos estáticos (importante para producción)
-echo "📦 Recopilando archivos estáticos..."
-python manage.py collectstatic --noinput --clear
-
-if [ $? -eq 0 ]; then
+# Recolectar archivos estáticos (solo si no existen)
+if [ ! -d "staticfiles" ]; then
+    echo "📦 Recopilando archivos estáticos..."
+    python manage.py collectstatic --noinput
     echo "✅ Archivos estáticos recopilados"
-else
-    echo "⚠️  Advertencia: No se pudieron recopilar algunos archivos estáticos"
 fi
 echo ""
 
 # Iniciar servidor Django
 echo "🚀 Iniciando servidor Django..."
 echo "   - URL: http://0.0.0.0:8000"
+echo "   - Modo: Producción (sin auto-reload de TensorFlow)"
 echo ""
-python manage.py runserver 0.0.0.0:8000
+python manage.py runserver 0.0.0.0:8000 --noreload
 

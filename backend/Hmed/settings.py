@@ -24,8 +24,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load settings from environment variables
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me-in-production')
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+# FUERZA DEBUG A TRUE PARA DESARROLLO - No redirigir HTTP a HTTPS
+DEBUG = True  # Forzado a True para desarrollo
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,web').split(',')
+
+# ============== CRITICAL: APPEND_SLASH MUST BE FALSE ==============
+# Prevenir redirecciones 301 en CORS preflight OPTIONS requests
+APPEND_SLASH = False
+
 
 
 # Application definition
@@ -47,10 +53,11 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'registros.middleware.NoRedirectOptionsMiddleware',  # ✅ Intercepta OPTIONS antes de todo
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
+    'django.middleware.common.CommonMiddleware',  # ✅ Restaurado con APPEND_SLASH = False
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -297,8 +304,3 @@ LOGGING = {
         },
     },
 }
-
-# ============== APPEND_SLASH CONFIGURATION ==============
-# Desabilitar redirecciones automáticas de trailing slash
-# Esto previene que CORS preflight requests sean redirigidas (lo cual no está permitido)
-APPEND_SLASH = False

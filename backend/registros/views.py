@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.views.decorators.csrf import csrf_exempt
 from .models import Medicamento, Paciente, RegistroClinico, MedicalDocument
 from .serializers import LoginSerializer, RegisterSerializer, UserSerializer, PacienteDetailSerializer
 from django_ratelimit.decorators import ratelimit
@@ -1062,8 +1063,8 @@ def change_password(request):
 # ==================== DOCUMENTO ENDPOINTS ====================
 
 @api_view(['POST', 'OPTIONS'])
-@permission_classes([IsAuthenticated])
-@ratelimit(key='ip', rate='50/h', method='POST')
+@permission_classes([AllowAny])  # Necesario: Permite OPTIONS sin token JWT
+@csrf_exempt  # Necesario para OPTIONS sin CSRF
 def upload_document(request):
     """
     Endpoint para subir documentos médicos
@@ -1076,15 +1077,31 @@ def upload_document(request):
     
     Retorna: document data actualizado
     """
-    # Handle OPTIONS para CORS preflight
+    # Handle OPTIONS para CORS preflight - responder SIEMPRE sin autenticación  
     if request.method == 'OPTIONS':
-        return Response({'status': 'ok'}, status=200)
+        logger.debug("OPTIONS preflight request handled by endpoint")
+        response = Response({'status': 'ok'}, status=200)
+        response['Access-Control-Allow-Origin'] = request.META.get('HTTP_ORIGIN', '*')
+        response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response['Access-Control-Max-Age'] = '3600'
+        return response
+    
+    # Requerir autenticación solo para POST
+    if not request.user or not request.user.is_authenticated:
+        return Response(
+            {'detail': 'Authentication required'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    logger.info(f"Upload document request - User: {request.user}, Files: {list(request.FILES.keys())}")
     
     if getattr(request, 'limited', False):
+        logger.warning(f"Rate limit exceeded for {request.user}")
         return Response(
             {
                 'error': 'Límite de carga excedido',
-                'detail': 'Has excedido el límite de 20 subidas por hora',
+                'detail': 'Has excedido el límite de 50 subidas por hora',
             },
             status=status.HTTP_429_TOO_MANY_REQUESTS,
             headers={'Retry-After': '3600'}
@@ -1092,12 +1109,14 @@ def upload_document(request):
 
     try:
         if 'document' not in request.FILES:
+            logger.error(f"Missing 'document' field. Available files: {list(request.FILES.keys())}")
             return Response(
                 {'detail': 'Campo "document" requerido'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         uploaded_file = request.FILES['document']
+        logger.info(f"Processing file: {uploaded_file.name}, Size: {uploaded_file.size} bytes")
 
         # Validar archivo
         validation = validate_file_upload(uploaded_file, max_size_mb=50, allowed_types=[
@@ -1107,6 +1126,7 @@ def upload_document(request):
         ])
 
         if not validation['valid']:
+            logger.warning(f"File validation failed: {validation['error']}")
             return Response(
                 {'detail': validation['error']},
                 status=status.HTTP_400_BAD_REQUEST
@@ -1121,36 +1141,61 @@ def upload_document(request):
             except (ValueError, TypeError):
                 pass
 
+        # Obtener datos opcionales
+        tipo_documento = request.data.get('tipo_documento', 'otro')
+        descripcion = request.data.get('descripcion', uploaded_file.name)
+        especialidad = request.data.get('especialidad', '')
+        clinica = request.data.get('clinica', '')
+        medico_emisor = request.data.get('medico_emisor', '')
+        
+        logger.info(f"Document metadata - Type: {tipo_documento}, Clinica: {clinica}, Especialidad: {especialidad}")
+
         # Crear documento
         medical_doc = MedicalDocument.objects.create(
             usuario=request.user,
             archivo=uploaded_file,
-            nombre=request.data.get('descripcion', uploaded_file.name),
-            tipo_documento=request.data.get('tipo_documento', 'otro'),
-            descripcion=request.data.get('descripcion', ''),
-            especialidad=request.data.get('especialidad', ''),
-            clinica=request.data.get('clinica', ''),
-            medico_emisor=request.data.get('medico_emisor', ''),
+            nombre=descripcion,
+            tipo_documento=tipo_documento,
+            descripcion=descripcion,
+            especialidad=especialidad,
+            clinica=clinica,
+            medico_emisor=medico_emisor,
             fecha_documento=fecha_documento,
         )
+        
+        logger.info(f"Document created successfully: ID={medical_doc.id}")
 
-        return Response({
+        # Convertir timestamps de forma segura
+        try:
+            creado_en_str = medical_doc.creado_en.strftime('%Y-%m-%dT%H:%M:%S') if medical_doc.creado_en else None
+        except Exception as e:
+            logger.warning(f"Error converting creado_en: {e}")
+            creado_en_str = str(medical_doc.creado_en)
+
+        response_data = {
             'message': 'Documento subido exitosamente',
             'document': {
                 'id': medical_doc.id,
                 'nombre': medical_doc.nombre,
                 'tipo_documento': medical_doc.tipo_documento,
-                'archivo_url': medical_doc.archivo.url,
-                'clinica': medical_doc.clinica,
-                'especialidad': medical_doc.especialidad,
-                'medico_emisor': medical_doc.medico_emisor,
-                'creado_en': medical_doc.creado_en,
+                'archivo_url': str(medical_doc.archivo.url),
+                'clinica': medical_doc.clinica or '',
+                'especialidad': medical_doc.especialidad or '',
+                'medico_emisor': medical_doc.medico_emisor or '',
+                'creado_en': creado_en_str,
             }
-        }, status=status.HTTP_201_CREATED)
+        }
+        
+        logger.info(f"Sending response: {json.dumps(response_data, indent=2, default=str)}")
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
     except Exception as e:
+        logger.error(f"Error uploading document: {str(e)}", exc_info=True)
         return Response(
-            {'detail': f'Error al subir documento: {str(e)}'},
+            {
+                'detail': f'Error al subir documento: {type(e).__name__}: {str(e)}',
+                'error_type': type(e).__name__
+            },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

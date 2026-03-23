@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import RedirectView
 from rest_framework import routers
+from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from registros.views import (
@@ -26,6 +28,9 @@ from registros.views import (
 router = routers.DefaultRouter()
 
 urlpatterns = [
+    # =============== REDIRECCIÓN RAÍZ A SWAGGER ===============
+    path('', RedirectView.as_view(url='/api/docs/swagger/', permanent=False), name='root_redirect'),
+    
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     
@@ -59,7 +64,7 @@ urlpatterns = [
     path('api/documents/search-similar/', search_similar_documents, name='search_similar_documents'),
     
     # =============== DOCUMENTACIÓN API (SWAGGER/OPENAPI) ===============
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/docs/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    path('api/schema/', SpectacularAPIView.as_view(permission_classes=[AllowAny]), name='schema'),
+    path('api/docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[AllowAny]), name='swagger-ui'),
+    path('api/docs/redoc/', SpectacularRedocView.as_view(url_name='schema', permission_classes=[AllowAny]), name='redoc'),
 ]
