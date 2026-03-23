@@ -1155,6 +1155,152 @@ def upload_document(request):
         )
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def auto_classify_document(request, doc_id):
+    """
+    AUTO-CLASIFICAR documento médico - Detectar automáticamente metadatos
+    
+    Endpoint: POST /api/documents/{doc_id}/auto-classify/
+    
+    Usa MedSigLIP para extraer automáticamente:
+    - Tipo de documento (receta, diagnóstico, análisis, etc.)
+    - Clínica/Centro médico
+    - Especialidad
+    - Médico emisor
+    - Fecha del documento
+    
+    Actualiza el documento y retorna los datos detectados.
+    """
+    try:
+        document = MedicalDocument.objects.get(id=doc_id, usuario=request.user)
+    except MedicalDocument.DoesNotExist:
+        return Response(
+            {'error': DOC_NOT_FOUND_PERMISSION},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    try:
+        if not document.archivo:
+            return Response(
+                {'error': FILE_DOC_NOT_FOUND},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        image_path = document.archivo.path
+        
+        # Extraer información médica del documento con MedSigLIP
+        from registros.analysis_service import extract_medical_findings
+        findings = extract_medical_findings(image_path)
+        
+        logger.info(f"Clasificación automática del documento {doc_id}: {findings.get('status')}")
+        
+        # Mapear datos extraídos a campos del documento
+        updates = {}
+        
+        if findings.get('document_type') and findings['document_type'] != 'unknown':
+            doc_type_mapping = {
+                'receta': 'receta',
+                'prescripción': 'receta',
+                'pharmacy': 'receta',
+                'prescription': 'receta',
+                'laboratorio': 'analisis',
+                'laboratory': 'analisis',
+                'lab': 'analisis',
+                'análisis': 'analisis',
+                'análisis de sangre': 'analisis',
+                'rayos x': 'radiografia',
+                'radiografía': 'radiografia',
+                'x-ray': 'radiografia',
+                'radiography': 'radiografia',
+                'ecografía': 'ecografia',
+                'ultrasound': 'ecografia',
+                'tomografía': 'tomografia',
+                'ct scan': 'tomografia',
+                'resonancia': 'resonancia',
+                'mri': 'resonancia',
+                'informe': 'informe',
+                'reporte': 'informe',
+                'report': 'informe',
+                'diagnóstico': 'informe',
+            }
+            
+            detected_type = findings['document_type'].lower()
+            for key, mapped_value in doc_type_mapping.items():
+                if key in detected_type:
+                    updates['tipo_documento'] = mapped_value
+                    break
+            if 'tipo_documento' not in updates:
+                updates['tipo_documento'] = 'otro'
+        
+        if findings.get('institution'):
+            updates['clinica'] = findings['institution'][:200]
+        
+        if findings.get('specialty'):
+            updates['especialidad'] = findings['specialty'][:100]
+        
+        if findings.get('physician'):
+            updates['medico_emisor'] = findings['physician'][:200]
+        
+        if findings.get('date'):
+            try:
+                from datetime import datetime
+                date_obj = datetime.strptime(findings['date'][:10], '%Y-%m-%d').date()
+                updates['fecha_documento'] = date_obj
+            except (ValueError, TypeError):
+                pass
+        
+        # Guardar información extraída en ia_analisis
+        if not document.ia_analisis:
+            document.ia_analisis = {}
+        document.ia_analisis['extracted_metadata'] = {
+            'detected_type': findings.get('document_type'),
+            'detected_institution': findings.get('institution'),
+            'detected_specialty': findings.get('specialty'),
+            'detected_physician': findings.get('physician'),
+            'detected_date': findings.get('date'),
+        }
+        
+        # Actualizar documento con metadatos detectados
+        for field, value in updates.items():
+            setattr(document, field, value)
+        
+        document.save()
+        
+        logger.info(f"Documento {doc_id} clasificado automáticamente con campos: {updates}")
+        
+        return Response({
+            'id': document.id,
+            'message': 'Documento clasificado automáticamente',
+            'detected_metadata': {
+                'tipo_documento': document.tipo_documento,
+                'clinica': document.clinica,
+                'especialidad': document.especialidad,
+                'medico_emisor': document.medico_emisor,
+                'fecha_documento': str(document.fecha_documento) if document.fecha_documento else None,
+            },
+            'full_extraction': findings,
+            'document': {
+                'id': document.id,
+                'nombre': document.nombre,
+                'tipo_documento': document.tipo_documento,
+                'archivo_url': document.archivo.url,
+                'clinica': document.clinica,
+                'especialidad': document.especialidad,
+                'medico_emisor': document.medico_emisor,
+                'fecha_documento': document.fecha_documento,
+                'creado_en': document.creado_en,
+            }
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.error(f"Error en clasificación automática del documento {doc_id}: {str(e)}")
+        return Response(
+            {'error': f'Error en clasificación: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_documents(request):

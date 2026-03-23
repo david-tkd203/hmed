@@ -14,6 +14,7 @@ from registros.views import (
     update_profile,
     change_password,
     upload_document,
+    auto_classify_document,
     list_documents,
     delete_document,
     analyze_document,
@@ -47,6 +48,7 @@ urlpatterns = [
     
     # =============== DOCUMENTOS MÉDICOS ===============
     path('api/documents/upload/', upload_document, name='upload_document'),
+    path('api/documents/<int:doc_id>/auto-classify/', auto_classify_document, name='auto_classify_document'),
     path('api/documents/', list_documents, name='list_documents'),
     path('api/documents/<int:doc_id>/delete/', delete_document, name='delete_document'),
     
