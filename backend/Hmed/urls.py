@@ -29,7 +29,7 @@ router = routers.DefaultRouter()
 
 urlpatterns = [
     # =============== REDIRECCIÓN RAÍZ A SWAGGER ===============
-    path('', RedirectView.as_view(url='/api/docs/swagger/', permanent=False), name='root_redirect'),
+    path('', RedirectView.as_view(url='/api/docs/', permanent=False)),
     
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
@@ -64,7 +64,7 @@ urlpatterns = [
     path('api/documents/search-similar/', search_similar_documents, name='search_similar_documents'),
     
     # =============== DOCUMENTACIÓN API (SWAGGER/OPENAPI) ===============
-    path('api/schema/', SpectacularAPIView.as_view(permission_classes=[AllowAny]), name='schema'),
-    path('api/docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[AllowAny]), name='swagger-ui'),
-    path('api/docs/redoc/', SpectacularRedocView.as_view(url_name='schema', permission_classes=[AllowAny]), name='redoc'),
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/docs/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]

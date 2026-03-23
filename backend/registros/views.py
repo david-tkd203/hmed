@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.views.decorators.csrf import csrf_exempt
@@ -566,6 +567,11 @@ def _do_real_analysis(analyzer, document, doc_id, image_path):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@extend_schema(
+    summary="Analizar documento médico con MedSigLIP",
+    description="Realiza análisis de imagen usando MedSigLIP para extraer embeddings y características",
+    responses={200: serializers.Serializer()}
+)
 def analyze_document(request, doc_id):
     """
     Analizar documento médico con MedSigLIP
@@ -641,6 +647,11 @@ def analyze_document(request, doc_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@extend_schema(
+    summary="Extraer hallazgos médicos de documento",
+    description="Extrae información clínica como diagnósticos, medicamentos y observaciones",
+    responses={200: serializers.Serializer()}
+)
 def extract_findings(request, doc_id):
     """
     Extraer información médica del documento
@@ -735,6 +746,11 @@ def _do_real_classification(document, doc_id, image_path, findings, analyzer):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@extend_schema(
+    summary="Clasificar hallazgos médicos",
+    description="Clasifica hallazgos extraídos con scores de confianza",
+    responses={200: serializers.Serializer()}
+)
 def classify_document_findings(request, doc_id):
     """
     Clasificar hallazgos médicos en documento
@@ -793,6 +809,11 @@ def classify_document_findings(request, doc_id):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+@extend_schema(
+    summary="Buscar documentos similares",
+    description="Busca documentos con contenido semánticamente similar usando embeddings",
+    responses={200: serializers.Serializer()}
+)
 
 
 
@@ -1197,6 +1218,11 @@ def upload_document(request):
                 'error_type': type(e).__name__
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+@extend_schema(
+    summary="Auto-clasificar documento médico",
+    description="Detecta automáticamente metadatos del documento usando análisis de imagen",
+    responses={200: serializers.Serializer()}
+)
         )
 
 
@@ -1348,6 +1374,11 @@ def auto_classify_document(request, doc_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@extend_schema(
+    summary="Listar documentos del usuario",
+    description="Obtiene todos los documentos médicos del usuario autenticado con filtrado opcional",
+    responses={200: serializers.Serializer()}
+)
 def list_documents(request):
     """
     Listar documentos del usuario autenticado
