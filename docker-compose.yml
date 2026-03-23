@@ -37,7 +37,7 @@ services:
 
   web:
     build: ./backend
-    command: bash -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000 --noreload"
+    command: bash -c "chmod +x /app/entrypoint.sh && /app/entrypoint.sh"
     volumes:
       - ./backend:/app
     ports:
@@ -56,6 +56,9 @@ services:
       - PYTHONUNBUFFERED=1
       - AI_SERVICE_URL=http://ai:8001
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,web,frontend,host.docker.internal}
+      - TEST_USERNAME=${TEST_USERNAME:-testuser}
+      - TEST_PASSWORD=${TEST_PASSWORD:-changeme}
+      - TEST_EMAIL=${TEST_EMAIL:-test@example.local}
     depends_on:
       db:
         condition: service_healthy
