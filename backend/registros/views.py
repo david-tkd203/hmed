@@ -1086,6 +1086,11 @@ def change_password(request):
 @api_view(['POST', 'OPTIONS'])
 @permission_classes([AllowAny])  # Necesario: Permite OPTIONS sin token JWT
 @csrf_exempt  # Necesario para OPTIONS sin CSRF
+@extend_schema(
+    summary="Subir documento médico",
+    description="Sube un documento médico con metadatos opcionales",
+    responses={201: serializers.Serializer()}
+)
 def upload_document(request):
     """
     Endpoint para subir documentos médicos
@@ -1426,6 +1431,11 @@ def list_documents(request):
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
+@extend_schema(
+    summary="Eliminar documento médico",
+    description="Elimina un documento (solo el propietario puede hacerlo)",
+    responses={204: None}
+)
 def delete_document(request, doc_id):
     """
     Eliminar un documento específico (solo el propietario puede)
