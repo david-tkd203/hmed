@@ -168,6 +168,14 @@ CORS_EXPOSE_HEADERS = [
     'content-type',
     'x-csrftoken',
 ]
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 
 # CSRF Configuration
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
@@ -289,3 +297,8 @@ LOGGING = {
         },
     },
 }
+
+# ============== APPEND_SLASH CONFIGURATION ==============
+# Desabilitar redirecciones automáticas de trailing slash
+# Esto previene que CORS preflight requests sean redirigidas (lo cual no está permitido)
+APPEND_SLASH = False
