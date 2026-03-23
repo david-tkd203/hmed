@@ -1112,6 +1112,15 @@ def upload_document(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Parsear fecha_documento si se proporciona
+        fecha_documento = None
+        if request.data.get('fecha_documento'):
+            try:
+                from datetime import datetime
+                fecha_documento = datetime.strptime(request.data.get('fecha_documento'), '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                pass
+
         # Crear documento
         medical_doc = MedicalDocument.objects.create(
             usuario=request.user,
@@ -1120,7 +1129,9 @@ def upload_document(request):
             tipo_documento=request.data.get('tipo_documento', 'otro'),
             descripcion=request.data.get('descripcion', ''),
             especialidad=request.data.get('especialidad', ''),
+            clinica=request.data.get('clinica', ''),
             medico_emisor=request.data.get('medico_emisor', ''),
+            fecha_documento=fecha_documento,
         )
 
         return Response({
@@ -1130,6 +1141,9 @@ def upload_document(request):
                 'nombre': medical_doc.nombre,
                 'tipo_documento': medical_doc.tipo_documento,
                 'archivo_url': medical_doc.archivo.url,
+                'clinica': medical_doc.clinica,
+                'especialidad': medical_doc.especialidad,
+                'medico_emisor': medical_doc.medico_emisor,
                 'creado_en': medical_doc.creado_en,
             }
         }, status=status.HTTP_201_CREATED)
@@ -1169,7 +1183,9 @@ def list_documents(request):
                 'descripcion': doc.descripcion,
                 'archivo_url': doc.archivo.url,
                 'especialidad': doc.especialidad,
+                'clinica': doc.clinica,
                 'medico_emisor': doc.medico_emisor,
+                'fecha_documento': doc.fecha_documento,
                 'creado_en': doc.creado_en,
                 'actualizado_en': doc.actualizado_en,
             })

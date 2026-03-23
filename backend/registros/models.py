@@ -80,6 +80,7 @@ class MedicalDocument(models.Model):
     archivo = models.FileField(upload_to='documentos_medicos/%Y/%m/%d/')
     fecha_documento = models.DateField(blank=True, null=True, help_text='Fecha del documento original')
     especialidad = models.CharField(max_length=100, blank=True, null=True)
+    clinica = models.CharField(max_length=200, blank=True, null=True, help_text='Clínica o centro médico')
     medico_emisor = models.CharField(max_length=200, blank=True, null=True)
     contenido_extraido = models.TextField(blank=True, null=True, help_text='Contenido extraído mediante OCR/IA')
     ia_analisis = models.JSONField(blank=True, null=True, help_text='Análisis IA (MedSigLIP, MedGemma)')

@@ -14,6 +14,8 @@ export default function DocumentUpload({ onBack, theme }) {
   const [analysisState, setAnalysisState] = useState({});
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [editingMetadata, setEditingMetadata] = useState(null);
+  const [fileMetadata, setFileMetadata] = useState({});
   const fileInputRef = useRef(null);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -89,14 +91,28 @@ export default function DocumentUpload({ onBack, theme }) {
 
     const validFiles = newFiles.map(file => {
       const validation = validateFile(file);
+      const fileId = `${file.name}-${Date.now()}`;
+      
+      // Inicializar metadata para este archivo
+      setFileMetadata(prev => ({
+        ...prev,
+        [fileId]: {
+          tipo_documento: 'otro',
+          clinica: '',
+          especialidad: '',
+          medico_emisor: '',
+          fecha_documento: '',
+        }
+      }));
+
       return {
-        id: `${file.name}-${Date.now()}`,
+        id: fileId,
         file,
         preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
         error: validation.error,
         valid: validation.valid,
         uploaded: false,
-        docId: null, // ID del documento después de subir
+        docId: null,
       };
     });
 
@@ -131,10 +147,17 @@ export default function DocumentUpload({ onBack, theme }) {
   const uploadFile = async (fileObj) => {
     if (!fileObj.valid) return;
     
+    const metadata = fileMetadata[fileObj.id] || {};
     const formData = new FormData();
     formData.append('document', fileObj.file);
-    formData.append('tipo_documento', 'medico');
+    formData.append('tipo_documento', metadata.tipo_documento || 'otro');
     formData.append('descripcion', fileObj.file.name);
+    formData.append('clinica', metadata.clinica || '');
+    formData.append('especialidad', metadata.especialidad || '');
+    formData.append('medico_emisor', metadata.medico_emisor || '');
+    if (metadata.fecha_documento) {
+      formData.append('fecha_documento', metadata.fecha_documento);
+    }
 
     try {
       const response = await axiosInstance.post(
@@ -409,13 +432,22 @@ export default function DocumentUpload({ onBack, theme }) {
                   )}
 
                   {!fileObj.uploaded && (
-                    <button
-                      onClick={() => removeFile(fileObj.id)}
-                      className="btn-remove"
-                      title={t('documents.removeFile')}
-                    >
-                      <X size={20} />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => setEditingMetadata(fileObj.id)}
+                        className="btn-edit-metadata"
+                        title="Editar información del documento"
+                      >
+                        ✎ Información
+                      </button>
+                      <button
+                        onClick={() => removeFile(fileObj.id)}
+                        className="btn-remove"
+                        title={t('documents.removeFile')}
+                      >
+                        <X size={20} />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -449,6 +481,106 @@ export default function DocumentUpload({ onBack, theme }) {
           loading={false}
           error={null}
         />
+      )}
+
+      {/* Metadata Editor Modal */}
+      {editingMetadata && (
+        <div className="metadata-modal-overlay" onClick={() => setEditingMetadata(null)}>
+          <div className="metadata-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Información del Documento</h2>
+            
+            <div className="metadata-form">
+              <div className="form-group">
+                <label>Tipo de Documento *</label>
+                <select
+                  value={fileMetadata[editingMetadata]?.tipo_documento || 'otro'}
+                  onChange={(e) => setFileMetadata(prev => ({
+                    ...prev,
+                    [editingMetadata]: { ...prev[editingMetadata], tipo_documento: e.target.value }
+                  }))}
+                >
+                  <option value="otro">Otro</option>
+                  <option value="radiografia">Radiografía</option>
+                  <option value="analisis">Análisis/Laboratorio</option>
+                  <option value="ecografia">Ecografía</option>
+                  <option value="tomografia">Tomografía</option>
+                  <option value="resonancia">Resonancia Magnética</option>
+                  <option value="informe">Informe Médico</option>
+                  <option value="receta">Receta Médica</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Clínica / Centro Médico</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Clínica San Rafael"
+                  value={fileMetadata[editingMetadata]?.clinica || ''}
+                  onChange={(e) => setFileMetadata(prev => ({
+                    ...prev,
+                    [editingMetadata]: { ...prev[editingMetadata], clinica: e.target.value }
+                  }))}
+                  maxLength="200"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Especialidad</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Cardiología"
+                  value={fileMetadata[editingMetadata]?.especialidad || ''}
+                  onChange={(e) => setFileMetadata(prev => ({
+                    ...prev,
+                    [editingMetadata]: { ...prev[editingMetadata], especialidad: e.target.value }
+                  }))}
+                  maxLength="100"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Médico Emisor</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Dr. Juan Pérez"
+                  value={fileMetadata[editingMetadata]?.medico_emisor || ''}
+                  onChange={(e) => setFileMetadata(prev => ({
+                    ...prev,
+                    [editingMetadata]: { ...prev[editingMetadata], medico_emisor: e.target.value }
+                  }))}
+                  maxLength="200"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Fecha del Documento</label>
+                <input
+                  type="date"
+                  value={fileMetadata[editingMetadata]?.fecha_documento || ''}
+                  onChange={(e) => setFileMetadata(prev => ({
+                    ...prev,
+                    [editingMetadata]: { ...prev[editingMetadata], fecha_documento: e.target.value }
+                  }))}
+                />
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => setEditingMetadata(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-save"
+                onClick={() => setEditingMetadata(null)}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
