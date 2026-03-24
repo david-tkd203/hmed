@@ -9,15 +9,17 @@ services:
       - POSTGRES_DB=${DB_NAME:-hmed_db}
       - POSTGRES_USER=${DB_USER:-admin}
       - POSTGRES_PASSWORD=${DB_PASSWORD:-secret_pass}
+      - POSTGRES_INITDB_ARGS=-c log_min_messages=warning -c log_connections=false -c log_disconnections=false
     ports:
       - "5432:5432"
     networks:
       - hmed_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-hmed_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-hmed_db} && pg_isready -U ${DB_USER:-admin} -d sonarqube"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
 
   ai:
     build:
@@ -116,6 +118,9 @@ services:
       - SONAR_Java_javaVersion=17
       # Optimizaciones de memoria para Elasticsearch embebido
       - SONAR_ES_BOOTSTRAP_MEMORY_LOCK=false
+      # Reducir verbosidad de logs
+      - SONAR_LOG_LEVEL=WARN
+    entrypoint: ["/bin/sh", "-c", "sleep 20 && /opt/sonarqube/bin/sonar.sh console"]
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_extensions:/opt/sonarqube/extensions
