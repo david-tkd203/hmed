@@ -333,91 +333,123 @@ function ExtractionTab({ data, t }) {
     </div>
   );
 }
-        </div>
-      ) : data.medications && data.medications.length > 0 ? (
-        <div className="extraction-section">
-          <h3>💊 {t('documents.analysis.medications')}</h3>
-          <div className="items-list">
-            {data.medications.map((med, idx) => (
-              <div key={idx} className="item-tag">
-                {med}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="extraction-section">
-          <p className="no-data">{t('documents.analysis.noMedicationsFound')}</p>
-        </div>
-      )}
 
-      {/* Indicaciones */}
-      {data.indications && data.indications.length > 0 && (
-        <div className="extraction-section">
-          <h3>💉 Indicaciones Médicas</h3>
-          <div className="indications-list">
-            {data.indications.map((ind, idx) => (
-              <div key={idx} className="indication-item">
-                <div className="indication-number">{idx + 1}</div>
-                <div className="indication-text">{ind}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Hallazgos */}
-      {data.findings && data.findings.length > 0 && (
-        <div className="extraction-section">
-          <h3>🔍 {t('documents.analysis.findings')}</h3>
-          <div className="items-list">
-            {data.findings.map((finding, idx) => (
-              <div key={idx} className="item-tag findings-tag">
-                {finding}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {(!data.findings || data.findings.length === 0) && (
-        <div className="extraction-section">
-          <p className="no-data">{t('documents.analysis.noFindingsFound')}</p>
-        </div>
-      )}
-
-      {/* Observaciones */}
-      {data.observations && data.observations.length > 0 && (
-        <div className="extraction-section">
-          <h3>📝 {t('documents.analysis.observations')}</h3>
-          <div className="observations-list">
-            {data.observations.map((obs, idx) => (
-              <div key={idx} className="observation-item">
-                <p>{obs}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {(!data.observations || data.observations.length === 0) && (
-        <div className="extraction-section">
-          <p className="no-data">{t('documents.analysis.noObservationsFound')}</p>
-        </div>
-      )}
-
-      {/* Texto Extraído */}
-      {data.extracted_text && (
-        <div className="extraction-section">
-          <h3>📰 {t('documents.analysis.extractedText')} ({data.text_length || 0} {t('documents.characters')})</h3>
-          <div className="extracted-text">
-            <p>{data.extracted_text}</p>
-          </div>
-        </div>
-      )}
-
-      {data.status === 'no_text' && (
+/**
+ * Pestaña de análisis - Muestra embeddings y confianza
+ */
+function AnalysisTab({ data, t, documentId }) {
+  if (!data) {
+    return (
+      <div className="tab-content">
         <div className="no-data-message">
-          <p>⚠️ {t('documents.analysis.extractedInfo')}</p>
-          <p className="text-small">{t('documents.uploadError')}</p>
+          <p>📊 {t('documents.analysis.noAnalysisData')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="tab-content analysis-tab">
+      {/* Información de Confianza */}
+      {data.confidence !== undefined && (
+        <div className="analysis-section">
+          <h3>🎯 Confianza del Análisis</h3>
+          <div className="confidence-meter">
+            <div className="confidence-bar" style={{width: `${(data.confidence || 0) * 100}%`}}></div>
+          </div>
+          <p>{(data.confidence * 100).toFixed(2)}%</p>
+        </div>
+      )}
+
+      {/* Información de clasificación */}
+      {data.classification && (
+        <div className="analysis-section">
+          <h3>🏷️ Clasificación</h3>
+          <div className="classification-badge">
+            {data.classification}
+          </div>
+        </div>
+      )}
+
+      {/* Información de embedding */}
+      {data.embedding_info && (
+        <div className="analysis-section">
+          <h3>🧠 Información de Embedding</h3>
+          <div className="info-box">
+            <p>Dimensión: {data.embedding_info.dimension}</p>
+            <p>Modelo: {data.embedding_info.model}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Pestaña de clasificación - Muestra clasificación de hallazgos
+ */
+function ClassificationTab({ data, t }) {
+  if (!data || !data.classified_findings) {
+    return (
+      <div className="tab-content">
+        <div className="no-data-message">
+          <p>🏷️ Sin datos de clasificación</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="tab-content classification-tab">
+      {data.classified_findings.map((finding, idx) => (
+        <div key={idx} className="finding-classification">
+          <div className="finding-text">{finding.text}</div>
+          <div className="finding-class">
+            <span className="badge">{finding.classification}</span>
+            {finding.confidence && (
+              <span className="confidence">
+                ({(finding.confidence * 100).toFixed(1)}%)
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Pestaña de documentos similares
+ */
+function SimilarDocumentsTab({ documents, selected, onSelect, t }) {
+  return (
+    <div className="tab-content similar-documents-tab">
+      <div className="similar-list">
+        {documents.map((doc, idx) => (
+          <div
+            key={idx}
+            className={`similar-item ${selected === idx ? 'selected' : ''}`}
+            onClick={() => onSelect(idx)}
+          >
+            <div className="doc-name">{doc.filename || `Document ${idx + 1}`}</div>
+            {doc.similarity_score && (
+              <div className="similarity-score">
+                Similitud: {(doc.similarity_score * 100).toFixed(1)}%
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {selected !== null && documents[selected] && (
+        <div className="similar-detail">
+          <h4>{documents[selected].filename}</h4>
+          <p>Similitud: {(documents[selected].similarity_score * 100).toFixed(1)}%</p>
+          {documents[selected].content_preview && (
+            <div className="preview">
+              {documents[selected].content_preview}
+            </div>
+          )}
         </div>
       )}
     </div>
