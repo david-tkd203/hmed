@@ -187,7 +187,26 @@ CORS_ALLOW_METHODS = [
 # CSRF Configuration
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
-# Security Configuration (conditional based on DEBUG)
+# ============================================================================
+# SECURITY HEADERS & COOKIE PROTECTION (OWASP)
+# ============================================================================
+
+# Protección de Cookies - Siempre activo (evita XSS)
+SESSION_COOKIE_HTTPONLY = True  # No accesible desde JavaScript
+CSRF_COOKIE_HTTPONLY = True     # No accesible desde JavaScript
+SESSION_COOKIE_SAMESITE = 'Lax' # CSRF protection
+CSRF_COOKIE_SAMESITE = 'Lax'    # CSRF protection
+
+# Cabeceras de Seguridad - Siempre activo
+SECURE_BROWSER_XSS_FILTER = True        # X-XSS-Protection: 1; mode=block
+SECURE_CONTENT_TYPE_NOSNIFF = True      # X-Content-Type-Options: nosniff
+SECURE_REFERRER_POLICY = "same-origin"  # Referrer-Policy: same-origin
+
+# Ocultar versión de Django
+SECURE_SERVER_NAME = None  # No revelar información del servidor
+X_FRAME_OPTIONS = 'DENY'   # X-Frame-Options: DENY (Clickjacking protection)
+
+# Security Configuration (condicional basado en DEBUG)
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True

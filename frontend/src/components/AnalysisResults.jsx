@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import './AnalysisResults.css';
 
+// ============================================================================
+// MAIN COMPONENT: AnalysisResults
+// ============================================================================
+
 /**
  * Componente para mostrar resultados de análisis MedSigLIP
  * 
@@ -334,130 +338,13 @@ function ExtractionTab({ data, t }) {
   );
 }
 
-/**
- * Pestaña de análisis - Muestra embeddings y confianza
- */
-function AnalysisTab({ data, t, documentId }) {
-  if (!data) {
-    return (
-      <div className="tab-content">
-        <div className="no-data-message">
-          <p>📊 {t('documents.analysis.noAnalysisData')}</p>
-        </div>
-      </div>
-    );
-  }
 
-  return (
-    <div className="tab-content analysis-tab">
-      {/* Información de Confianza */}
-      {data.confidence !== undefined && (
-        <div className="analysis-section">
-          <h3>🎯 Confianza del Análisis</h3>
-          <div className="confidence-meter">
-            <div className="confidence-bar" style={{width: `${(data.confidence || 0) * 100}%`}}></div>
-          </div>
-          <p>{(data.confidence * 100).toFixed(2)}%</p>
-        </div>
-      )}
-
-      {/* Información de clasificación */}
-      {data.classification && (
-        <div className="analysis-section">
-          <h3>🏷️ Clasificación</h3>
-          <div className="classification-badge">
-            {data.classification}
-          </div>
-        </div>
-      )}
-
-      {/* Información de embedding */}
-      {data.embedding_info && (
-        <div className="analysis-section">
-          <h3>🧠 Información de Embedding</h3>
-          <div className="info-box">
-            <p>Dimensión: {data.embedding_info.dimension}</p>
-            <p>Modelo: {data.embedding_info.model}</p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// ============================================================================
+// SUB-COMPONENTS: Tab Components
+// ============================================================================
 
 /**
- * Pestaña de clasificación - Muestra clasificación de hallazgos
- */
-function ClassificationTab({ data, t }) {
-  if (!data || !data.classified_findings) {
-    return (
-      <div className="tab-content">
-        <div className="no-data-message">
-          <p>🏷️ Sin datos de clasificación</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="tab-content classification-tab">
-      {data.classified_findings.map((finding, idx) => (
-        <div key={idx} className="finding-classification">
-          <div className="finding-text">{finding.text}</div>
-          <div className="finding-class">
-            <span className="badge">{finding.classification}</span>
-            {finding.confidence && (
-              <span className="confidence">
-                ({(finding.confidence * 100).toFixed(1)}%)
-              </span>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/**
- * Pestaña de documentos similares
- */
-function SimilarDocumentsTab({ documents, selected, onSelect, t }) {
-  return (
-    <div className="tab-content similar-documents-tab">
-      <div className="similar-list">
-        {documents.map((doc, idx) => (
-          <div
-            key={idx}
-            className={`similar-item ${selected === idx ? 'selected' : ''}`}
-            onClick={() => onSelect(idx)}
-          >
-            <div className="doc-name">{doc.filename || `Document ${idx + 1}`}</div>
-            {doc.similarity_score && (
-              <div className="similarity-score">
-                Similitud: {(doc.similarity_score * 100).toFixed(1)}%
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {selected !== null && documents[selected] && (
-        <div className="similar-detail">
-          <h4>{documents[selected].filename}</h4>
-          <p>Similitud: {(documents[selected].similarity_score * 100).toFixed(1)}%</p>
-          {documents[selected].content_preview && (
-            <div className="preview">
-              {documents[selected].content_preview}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Pestaña de análisis - Muestra embeddings, confidence, metadata
+ * Pestaña de extracción - Muestra información extraída del documento
  */
 function AnalysisTab({ data, t, documentId }) {
   if (!data) {
