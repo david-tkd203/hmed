@@ -198,24 +198,57 @@ export default function DocumentUpload({ onBack, theme }) {
 
       console.log('✅ Clasificación completada:', response.data.detected_metadata);
 
+      // También extraer información médica del documento
+      console.log(`🔍 Extrayendo información del documento ${docId}...`);
+      let extraction = {
+        status: 'pending',
+        document_type: response.data.detected_metadata?.tipo_documento || 'otro',
+        physician: null,
+        specialty: response.data.detected_metadata?.especialidad || null,
+        institution: response.data.detected_metadata?.clinica || null,
+        date: null,
+        diagnosis: [],
+        medications: [],
+        findings: [],
+      };
+      
+      try {
+        const extractionResponse = await axiosInstance.post(
+          `/api/documents/${docId}/extract-findings/`,
+          {}
+        );
+        if (extractionResponse.data.extraction) {
+          extraction = extractionResponse.data.extraction;
+          console.log('✅ Información extraída:', extraction);
+        }
+      } catch (extractError) {
+        console.warn('⚠️ No se pudo extraer información:', extractError.message);
+        console.log('📋 Usando datos de clasificación como fallback');
+      }
+
       setAnalysisState(prev => ({
         ...prev,
         [fileId]: { 
           loading: false, 
           completed: true,
           classification: response.data.detected_metadata,
+          extraction: extraction,
           documentId: docId
         }
       }));
 
-      // Mostrar resultados de clasificación
-      setSelectedAnalysis({
-        fileId: fileId,
-        documentId: docId,
-        classification: response.data.detected_metadata,
-        mode: 'classification'
-      });
-      setShowAnalysisModal(true);
+      // Solo abrir modal si no está ya abierto
+      // Si está abierto, el usuario puede cambiar de archivo manualmente
+      if (!showAnalysisModal) {
+        setSelectedAnalysis({
+          fileId: fileId,
+          documentId: docId,
+          classification: response.data.detected_metadata,
+          extraction: extraction,
+          mode: 'extraction'
+        });
+        setShowAnalysisModal(true);
+      }
     } catch (error) {
       console.error('❌ Error en clasificación:', error);
       const errorMsg = error.response?.data?.error || error.response?.data?.detail || error.message || 'Error en clasificación automática';
@@ -251,16 +284,30 @@ export default function DocumentUpload({ onBack, theme }) {
 
       // También extraer información médica del documento
       console.log(`🔍 Extrayendo información del documento ${fileObj.docId}...`);
-      let extraction = null;
+      let extraction = {
+        status: 'pending',
+        document_type: 'unknown',
+        physician: null,
+        specialty: null,
+        institution: null,
+        date: null,
+        diagnosis: [],
+        medications: [],
+        findings: [],
+      };
+      
       try {
         const extractionResponse = await axiosInstance.post(
           `/api/documents/${fileObj.docId}/extract-findings/`,
           {}
         );
-        extraction = extractionResponse.data.extraction;
-        console.log('✅ Información extraída:', extraction);
+        if (extractionResponse.data.extraction) {
+          extraction = extractionResponse.data.extraction;
+          console.log('✅ Información extraída:', extraction);
+        }
       } catch (extractError) {
         console.warn('⚠️ No se pudo extraer información:', extractError.message);
+        console.log('📋 Usando datos de análisis como fallback');
       }
 
       setAnalysisState(prev => ({
@@ -426,7 +473,32 @@ export default function DocumentUpload({ onBack, theme }) {
                       {analysisState[fileObj.id].completed && (
                         <>
                           <CheckCircle size={16} />
-                          <span>Análisis completado</span>
+                          <span>Análisis completado - 
+                            <button 
+                              onClick={() => {
+                                setSelectedAnalysis({
+                                  fileId: fileObj.id,
+                                  documentId: analysisState[fileObj.id].documentId,
+                                  classification: analysisState[fileObj.id].classification,
+                                  analysis: analysisState[fileObj.id].analysis,
+                                  extraction: analysisState[fileObj.id].extraction,
+                                  mode: analysisState[fileObj.id].classification ? 'classification' : 'analysis'
+                                });
+                                setShowAnalysisModal(true);
+                              }}
+                              style={{
+                                marginLeft: '8px',
+                                background: 'none',
+                                border: 'none',
+                                color: '#0066cc',
+                                cursor: 'pointer',
+                                textDecoration: 'underline',
+                                fontSize: '0.9em'
+                              }}
+                            >
+                              Ver detalles
+                            </button>
+                          </span>
                         </>
                       )}
                     </div>

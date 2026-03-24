@@ -156,10 +156,37 @@ export default function AnalysisResults({
  * Pestaña de extracción - Muestra información extraída del documento
  */
 function ExtractionTab({ data, t }) {
+  // Si no hay datos, mostrar mensaje  
   if (!data) {
     return (
       <div className="tab-content">
-        <p className="no-data">{t('documents.analysis.extractedInfo')}</p>
+        <div className="no-data-message">
+          <p>📄 {t('documents.analysis.noExtractionData')}</p>
+          <p style={{fontSize: '0.9em', color: '#999'}}>La información será extraída cuando sea disponible</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Si el estado es 'pending' o hay error
+  if (data.status === 'pending' || data.status === 'no_text') {
+    return (
+      <div className="tab-content">
+        <div className="no-data-message">
+          <p>⏳ {t('documents.analysis.extracting') || 'Extrayendo información...'}</p>
+          <p style={{fontSize: '0.9em', color: '#999'}}>Por favor espere mientras se procesa el documento</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Si hay error en la extracción
+  if (data.status === 'error') {
+    return (
+      <div className="tab-content">
+        <div className="error-message">
+          <p>⚠️ Error en la extracción: {data.message}</p>
+        </div>
       </div>
     );
   }
@@ -167,15 +194,17 @@ function ExtractionTab({ data, t }) {
   return (
     <div className="tab-content extraction-tab">
       {/* Tipo de Documento */}
-      <div className="extraction-section">
-        <h3>📋 {t('documents.analysis.documentType')}</h3>
-        <div className="document-type-badge">
-          {data.document_type || t('documents.analysis.documentType')}
+      {data.document_type && (
+        <div className="extraction-section">
+          <h3>📋 {t('documents.analysis.documentType')}</h3>
+          <div className="document-type-badge">
+            {data.document_type || t('documents.analysis.unknown')}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Información del Médico */}
-      {(data.physician || data.physician_specialty) && (
+      {(data.physician || data.specialty) && (
         <div className="extraction-section">
           <h3>👨‍⚕️ Información del Médico</h3>
           <div className="info-grid">
@@ -185,10 +214,10 @@ function ExtractionTab({ data, t }) {
                 <span className="value">{data.physician}</span>
               </div>
             )}
-            {data.physician_specialty && (
+            {data.specialty && (
               <div className="info-item">
                 <span className="label">Especialidad:</span>
-                <span className="value">{data.physician_specialty}</span>
+                <span className="value">{data.specialty}</span>
               </div>
             )}
             {data.physician_id && (
@@ -222,7 +251,7 @@ function ExtractionTab({ data, t }) {
       )}
 
       {/* Diagnóstico */}
-      {data.diagnosis && data.diagnosis.length > 0 && (
+      {data.diagnosis && data.diagnosis.length > 0 ? (
         <div className="extraction-section">
           <h3>🔍 Diagnóstico</h3>
           <div className="items-list">
@@ -232,6 +261,11 @@ function ExtractionTab({ data, t }) {
               </div>
             ))}
           </div>
+        </div>
+      ) : (
+        <div className="extraction-section">
+          <h3>🔍 Diagnóstico</h3>
+          <p style={{color: '#999'}}>No se encontraron diagnósticos</p>
         </div>
       )}
 
@@ -248,6 +282,57 @@ function ExtractionTab({ data, t }) {
               </div>
             ))}
           </div>
+        </div>
+      ) : data.medications && data.medications.length > 0 ? (
+        <div className="extraction-section">
+          <h3>💊 {t('documents.analysis.medications')}</h3>
+          <div className="items-list">
+            {data.medications.map((med, idx) => (
+              <div key={idx} className="item-tag medication-tag">
+                {med}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="extraction-section">
+          <h3>💊 {t('documents.analysis.medications')}</h3>
+          <p style={{color: '#999'}}>No se encontraron medicamentos</p>
+        </div>
+      )}
+
+      {/* Hallazgos */}
+      {data.findings && data.findings.length > 0 ? (
+        <div className="extraction-section">
+          <h3>💭 Hallazgos</h3>
+          <div className="items-list">
+            {data.findings.map((finding, idx) => (
+              <div key={idx} className="item-tag findings-tag">
+                {finding}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="extraction-section">
+          <h3>💭 Hallazgos</h3>
+          <p style={{color: '#999'}}>No se encontraron hallazgos</p>
+        </div>
+      )}
+
+      {/* Texto extraído */}
+      {data.extracted_text && (
+        <div className="extraction-section">
+          <h3>📝 Texto Original (Resumen)</h3>
+          <div className="extracted-text">
+            {data.extracted_text}
+            {data.text_length > 300 && <p style={{color: '#999', fontSize: '0.9em'}}>... (+{data.text_length - 300} caracteres)</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
         </div>
       ) : data.medications && data.medications.length > 0 ? (
         <div className="extraction-section">
