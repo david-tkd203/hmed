@@ -7,7 +7,8 @@
 ## 📑 Tabla de Contenidos
 
 - [Descripción General](#descripción-general)
-- [Arquitectura del Sistema](#🏗️-arquitectura-del-sistema---análisis-de-documentos-médicos)
+- [Capturas de Pantalla](#capturas-de-pantalla)
+- [Arquitectura del Sistema](#-arquitectura-del-sistema---análisis-de-documentos-médicos)
 - [Stack Tecnológico](#stack-tecnológico)
 - [Estructura del Proyecto](#estructura-del-proyecto)
 - [Requisitos Previos](#requisitos-previos)
@@ -39,6 +40,16 @@
 - Médicos pueden acceder a información histórica completa durante consultas
 - Profesionales de salud pueden generar análisis sobre patrones de medicamentos
 - Integración futura con sistemas de IA para diagnósticos asistidos
+
+---
+
+## Capturas de Pantalla
+
+### Interfaz de la Plataforma
+![Plataforma HMED](docs/images/landing_page.png)
+
+### Análisis de Código - Reporte SonarQube
+![SonarQube](docs/images/resultado_sonar_qube.png)
 
 ---
 
