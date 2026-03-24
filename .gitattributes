@@ -1,0 +1,112 @@
+# ============================================
+# .gitattributes - Normalizar line endings
+# ============================================
+# Configura qué archivos deben usar LF (Unix) o CRLF (Windows)
+# Normalizando para que todos los desarrolladores trabajen con los mismos saltos de línea
+
+# ============================================
+# SCRIPTS (SIEMPRE LF - Unix style)
+# ============================================
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+
+# ============================================
+# CONFIGURACIÓN (SIEMPRE LF)
+# ============================================
+.env* text eol=lf
+.gitignore text eol=lf
+.git* text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+Dockerfile* text eol=lf
+docker-compose*.yml text eol=lf
+.dockerignore text eol=lf
+
+# ============================================
+# PYTHON (SIEMPRE LF)
+# ============================================
+*.py text eol=lf
+*.pyw text eol=lf
+requirements*.txt text eol=lf
+setup.py text eol=lf
+setup.cfg text eol=lf
+pyproject.toml text eol=lf
+tox.ini text eol=lf
+pytest.ini text eol=lf
+
+# ============================================
+# WEB (SIEMPRE LF)
+# ============================================
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.less text eol=lf
+*.md text eol=lf
+*.markdown text eol=lf
+
+# ============================================
+# NODE.JS (SIEMPRE LF)
+# ============================================
+.npmrc text eol=lf
+.yarnrc text eol=lf
+package.json text eol=lf
+package-lock.json text eol=lf
+yarn.lock text eol=lf
+pnpm-lock.yaml text eol=lf
+
+# ============================================
+# GIT (SIEMPRE LF)
+# ============================================
+*.patch text eol=lf
+.gitattributes text eol=lf
+
+# ============================================
+# BINARIOS (no normalizar)
+# ============================================
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.db binary
+*.sqlite binary
+*.pkl binary
+*.pickle binary
+*.pth binary
+*.pt binary
+*.h5 binary
+*.onnx binary
+
+# ============================================
+# ARCHIVOS DOCUMENTACIÓN
+# ============================================
+*.txt text eol=lf
+*.csv text eol=lf
+*.sql text eol=lf
+Makefile text eol=lf
+README* text eol=lf
+CHANGELOG* text eol=lf
+LICENSE* text eol=lf
+AUTHORS text eol=lf
+
+# ============================================
+# IDE/EDITOR
+# ============================================
+.editorconfig text eol=lf
+.prettierrc* text eol=lf
+.eslintrc* text eol=lf
+.babelrc* text eol=lf
+.vscode/settings.json text eol=lf
+.vscode/extensions.json text eol=lf

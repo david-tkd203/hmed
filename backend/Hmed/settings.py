@@ -50,11 +50,14 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'drf_spectacular',
+    # Security
+    'csp',
 ]
 
 MIDDLEWARE = [
     'registros.middleware.NoRedirectOptionsMiddleware',  # ✅ Intercepta OPTIONS antes de todo
     'django.middleware.security.SecurityMiddleware',
+    'csp.middleware.CSPMiddleware',  # ✅ Content Security Policy (django-csp)
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',  # ✅ Restaurado con APPEND_SLASH = False
@@ -62,6 +65,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'registros.middleware.SecurityHeadersMiddleware',  # ✅ Headers adicionales (Permissions-Policy, CORP, etc)
 ]
 
 ROOT_URLCONF = 'Hmed.urls'
@@ -198,13 +202,29 @@ SESSION_COOKIE_SAMESITE = 'Lax' # CSRF protection
 CSRF_COOKIE_SAMESITE = 'Lax'    # CSRF protection
 
 # Cabeceras de Seguridad - Siempre activo
-SECURE_BROWSER_XSS_FILTER = True        # X-XSS-Protection: 1; mode=block
-SECURE_CONTENT_TYPE_NOSNIFF = True      # X-Content-Type-Options: nosniff
-SECURE_REFERRER_POLICY = "same-origin"  # Referrer-Policy: same-origin
+SECURE_BROWSER_XSS_FILTER = True                    # X-XSS-Protection: 1; mode=block
+SECURE_CONTENT_TYPE_NOSNIFF = True                  # X-Content-Type-Options: nosniff
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"  # ✅ Más restrictivo
 
 # Ocultar versión de Django
 SECURE_SERVER_NAME = None  # No revelar información del servidor
 X_FRAME_OPTIONS = 'DENY'   # X-Frame-Options: DENY (Clickjacking protection)
+
+# ============ CONTENT SECURITY POLICY (CSP) ============
+# Política estricta que permite solo recursos de confianza
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'")  # Necesario para Swagger
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")   # Necesario para Swagger
+CSP_IMG_SRC = ("'self'", "data:", "https:")
+CSP_FONT_SRC = ("'self'", "data:", "https:")
+CSP_CONNECT_SRC = ("'self'", "http://localhost:*", "https://")  # APIs
+CSP_FRAME_ANCESTORS = ("'none'",)
+CSP_BASE_URI = ("'self'",)
+CSP_FORM_ACTION = ("'self'",)
+
+# Reportar violaciones CSP (opcional, para debugging)
+# CSP_REPORT_URI = '/api/csp-report/'
+# CSP_REPORT_ONLY = False  # Cambiar a True para modo solo-reportar
 
 # Security Configuration (condicional basado en DEBUG)
 if not DEBUG:
@@ -214,6 +234,10 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+    # En producción, ser más restrictivo con CSP
+    CSP_DEFAULT_SRC = ("'self'",)
+    CSP_SCRIPT_SRC = ("'self'",)  # Sin unsafe-inline en producción
+    CSP_STYLE_SRC = ("'self'",)
 else:
     SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False

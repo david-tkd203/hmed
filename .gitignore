@@ -13,8 +13,11 @@
 *.key
 *.pem
 *.p8
+*.crt
+*.csr
 secrets/
 secret/
+keys/
 
 # ============================================
 # 🐍 PYTHON / DJANGO
@@ -59,6 +62,16 @@ db.sqlite3-journal
 /staticfiles
 /backend/.env
 backend/.env
+backend/model_cache/
+!backend/model_cache/.gitkeep
+
+# AI Models y Cache
+/backend/model_cache/*
+!backend/model_cache/.gitkeep
+*.onnx
+*.pt
+*.pth
+*.safetensors
 
 # Unit test / coverage
 htmlcov/
@@ -98,6 +111,53 @@ dist-ssr/
 .idea/
 *.swp
 *.swo
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# ============================================
+# 📡 DOCKER
+# ============================================
+.dockerignore
+docker-compose.override.yml
+
+# ============================================
+# 📊 REPORTS Y LOGS
+# ============================================
+logs/
+*.log
+sonar-reports/
+coverage/
+htmlcov/
+.coverage
+test-results/
+
+# ============================================
+# 🔐 SENSIBLES - DOCUMENTOS MÉDICOS
+# ============================================
+/backend/documentos_medicos/
+!backend/documentos_medicos/.gitkeep
+/backend/media/
+!backend/media/.gitkeep
+
+# ============================================
+# 🔧 HERRAMIENTAS Y TEMPORAL
+# ============================================
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+._*
+.~*
+~*.tmp
+.Python
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
 *~
 .DS_Store
 *.sublime-project
