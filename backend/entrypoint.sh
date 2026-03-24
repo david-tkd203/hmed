@@ -8,6 +8,17 @@ echo "🔧 HISTORICO CLINICO - INICIALIZACION"
 echo "=================================="
 echo ""
 
+# ==========================================
+# DIAGNÓSTICO DE VARIABLES DE ENTORNO
+# ==========================================
+echo "🔍 Diagnóstico de Variables de Entorno:"
+echo "   - DB_HOST: ${DB_HOST:-db}"
+echo "   - DB_NAME: ${DB_NAME:-hmed_db}"
+echo "   - DB_USER: ${DB_USER:-admin}"
+echo "   - TEST_USERNAME: ${TEST_USERNAME:-testuser}"
+echo "   - TEST_EMAIL: ${TEST_EMAIL:-test@example.local}"
+echo ""
+
 # Información de conexión a BD
 echo "📊 Configuración de Base de Datos:"
 echo "   - HOST: ${DB_HOST:-db}"
@@ -33,15 +44,20 @@ TEST_USERNAME=${TEST_USERNAME:-testuser}
 TEST_PASSWORD=${TEST_PASSWORD:-changeme}
 TEST_EMAIL=${TEST_EMAIL:-test@example.local}
 
-python manage.py shell << 'PYEOF'
+# Validar que las variables están expandidas
+echo "   - Usuario: $TEST_USERNAME"
+echo "   - Email: $TEST_EMAIL"
+echo ""
+
+python manage.py shell << PYEOF
 from django.contrib.auth.models import User
 from registros.models import Paciente
 from datetime import date
 import hashlib
 
-test_username = ''"${TEST_USERNAME}"''
-test_email = ''"${TEST_EMAIL}"''
-test_password = ''"${TEST_PASSWORD}"''
+test_username = "$TEST_USERNAME"
+test_email = "$TEST_EMAIL"
+test_password = "$TEST_PASSWORD"
 
 try:
     # Crear o actualizar usuario
